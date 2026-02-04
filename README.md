@@ -66,7 +66,7 @@ Opens at http://localhost:7680 with:
 - Playwright MCP with Chromium
 - Gemini CLI 0.26.0 (optional - requires API key)
 - Slack read-only skill and tool (optional - requires token)
-- [DX plugin](https://github.com/ykdojo/claude-code-tips#tip-44-install-the-dx-plugin), [custom status line](https://github.com/ykdojo/claude-code-tips#tip-0-customize-your-status-line), shell aliases
+- [DX plugin](https://github.com/ykdojo/claude-code-tips#tip-44-install-the-dx-plugin), [custom status line](https://github.com/ykdojo/claude-code-tips#tip-0-customize-your-status-line), [shell aliases](#aliases)
 - ttyd web terminal + tmux
 
 ## Sensible defaults
@@ -111,3 +111,12 @@ You can add any additional secrets by creating files in the `.secrets/` director
 | `scripts/setup-slack.sh` | Set up Slack integration (optional) |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
+
+## Aliases
+
+Inside each container, these aliases are available:
+
+| Alias | Command |
+|-------|---------|
+| `c` | `claude` |
+| `cs` | `claude --dangerously-skip-permissions` |
