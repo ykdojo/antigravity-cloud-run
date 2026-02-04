@@ -61,7 +61,7 @@ Opens at http://localhost:7680 with:
 
 - Ubuntu 24.04
 - Node.js 24 (LTS)
-- Claude Code 2.1.30 (pinned, with [optimized system prompt](https://github.com/ykdojo/claude-code-tips#tip-15-slim-down-the-system-prompt) - starts at ~5% context instead of ~9%)
+- Claude Code 2.1.30 (with [optimized system prompt](https://github.com/ykdojo/claude-code-tips#tip-15-slim-down-the-system-prompt) - starts at ~5% context instead of ~9%)
 - GitHub CLI with auto-configured git user
 - Playwright MCP with Chromium
 - Gemini CLI 0.26.0 (optional - requires API key)
