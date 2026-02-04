@@ -2,6 +2,8 @@
 
 The easiest way to run multiple Claude Code sessions, each in its own container, with a dashboard to manage them all. Quick setup with battle-tested [sensible defaults](#sensible-defaults).
 
+https://github.com/user-attachments/assets/e282ed8f-3ec9-4a9e-aa9e-4bc84f9281e9
+
 See [architecture.md](architecture.md) for design details.
 
 ## Why a container?
