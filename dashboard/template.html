@@ -284,6 +284,12 @@
             color: #6b6560;
             margin-top: 4px;
         }
+        .modal-hint.error {
+            color: #a07070;
+        }
+        .modal-field input[type="text"].error {
+            border-color: #4a3030;
+        }
         .modal-field-checkbox {
             display: flex;
             align-items: center;
@@ -524,6 +530,7 @@
         function openNewSessionModal() {
             document.getElementById('new-session-modal').classList.add('open');
             document.getElementById('session-name').focus();
+            validateSessionName();
         }
 
         function closeNewSessionModal() {
@@ -533,13 +540,59 @@
             document.getElementById('session-volume').value = '';
             document.getElementById('session-query').value = '';
             document.getElementById('session-open-tab').checked = false;
+            clearSessionNameError();
+        }
+
+        function getExistingSessionNames() {
+            const rows = document.querySelectorAll('.sessions tbody tr[data-name]');
+            return Array.from(rows).map(row => {
+                const name = row.dataset.name;
+                // Convert container name to session name (safeclaw-foo -> foo, safeclaw -> default)
+                if (name === 'safeclaw') return 'default';
+                return name.replace('safeclaw-', '');
+            });
+        }
+
+        function sessionNameExists(name) {
+            return getExistingSessionNames().includes(name);
+        }
+
+        function showSessionNameError(name) {
+            const input = document.getElementById('session-name');
+            const hint = document.getElementById('session-name-hint');
+            input.classList.add('error');
+            hint.classList.add('error');
+            hint.textContent = `session "${name}" already seems to exist`;
+        }
+
+        function clearSessionNameError() {
+            const input = document.getElementById('session-name');
+            const hint = document.getElementById('session-name-hint');
+            input.classList.remove('error');
+            hint.classList.remove('error');
+            hint.textContent = 'use a unique name to create a new session';
+        }
+
+        function validateSessionName() {
+            const name = document.getElementById('session-name').value.trim() || 'default';
+            if (sessionNameExists(name)) {
+                showSessionNameError(name);
+            } else {
+                clearSessionNameError();
+            }
         }
 
         async function submitNewSession() {
-            const name = document.getElementById('session-name').value.trim();
+            const name = document.getElementById('session-name').value.trim() || 'default';
             const volume = document.getElementById('session-volume').value.trim();
             const query = document.getElementById('session-query').value.trim();
             const openTab = document.getElementById('session-open-tab').checked;
+
+            // Check if session already exists
+            if (sessionNameExists(name)) {
+                showSessionNameError(name);
+                return;
+            }
 
             const res = await fetch('/api/create', {
                 method: 'POST',
@@ -608,8 +661,8 @@
             <p class="modal-subtitle">each session runs in its own isolated container</p>
             <div class="modal-field">
                 <label for="session-name">session name</label>
-                <input type="text" id="session-name" placeholder="default">
-                <p class="modal-hint">use a unique name to create a new session</p>
+                <input type="text" id="session-name" placeholder="default" oninput="validateSessionName()">
+                <p class="modal-hint" id="session-name-hint">use a unique name to create a new session</p>
             </div>
             <div class="modal-field">
                 <label for="session-volume">volume mount</label>
