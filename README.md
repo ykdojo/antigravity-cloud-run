@@ -16,7 +16,7 @@ This lets you run Claude Code with `--dangerously-skip-permissions` safely and f
 
 ## One session per container
 
-Each Claude Code session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Conversation history persists locally for each session.
+Each Claude Code session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Conversation history is automatically stored on your host machine via a volume mount.
 
 ## Quick start
 
