@@ -3,10 +3,19 @@
   "version": "0.1.0",
   "description": "Sandboxed Docker container running Claude Code",
   "scripts": {
+    "build": "./scripts/build.sh",
+    "start": "./scripts/run.sh",
+    "restart": "./scripts/restart.sh",
+    "setup-gemini": "./scripts/setup-gemini.sh",
+    "setup-slack": "./scripts/setup-slack.sh",
     "dashboard": "node dashboard/server.js",
+    "dashboard:dev": "nodemon dashboard/server.js",
     "manage-env": "node scripts/manage-env.js"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }

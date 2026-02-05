@@ -120,3 +120,16 @@ Inside each container, these aliases are available:
 |-------|---------|
 | `c` | `claude` |
 | `cs` | `claude --dangerously-skip-permissions` |
+
+## npm scripts
+
+| Command | Runs |
+|---------|------|
+| `npm run build` | `./scripts/build.sh` |
+| `npm start` | `./scripts/run.sh` |
+| `npm run restart` | `./scripts/restart.sh` |
+| `npm run dashboard` | `node dashboard/server.js` |
+| `npm run dashboard:dev` | `nodemon dashboard/server.js` |
+| `npm run setup-gemini` | `./scripts/setup-gemini.sh` |
+| `npm run setup-slack` | `./scripts/setup-slack.sh` |
+| `npm run manage-env` | `node scripts/manage-env.js` |
