@@ -226,7 +226,7 @@ function renderContent(sessions) {
     return `
     <div class="table-wrapper">
         <table class="sessions">
-            <thead><tr><th>Session</th><th>URL</th><th>Volume</th><th></th></tr></thead>
+            <thead><tr><th>Session</th><th>URL</th><th>Volume <span class="info-icon">i<span class="tooltip">Conversation history is persisted via a volume mount not shown here</span></span></th><th></th></tr></thead>
             <tbody>${sessionRows}</tbody>
         </table>
     </div>

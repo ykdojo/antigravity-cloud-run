@@ -70,6 +70,42 @@
             direction: rtl;
             text-align: left;
         }
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid #555;
+            font-size: 10px;
+            font-style: italic;
+            font-family: serif;
+            color: #888;
+            cursor: help;
+            vertical-align: middle;
+            margin-left: -2px;
+            position: relative;
+            top: -1px;
+        }
+        .info-icon:hover { color: #ccc; border-color: #999; }
+        .info-icon .tooltip {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: #2a2724;
+            border: 1px solid #444;
+            color: #ccc;
+            font-size: 12px;
+            font-style: normal;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+            padding: 6px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .info-icon:hover .tooltip { display: block; }
         .volume {
             color: #b0b8c0;
             font-size: 12px;
