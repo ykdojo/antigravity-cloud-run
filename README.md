@@ -120,6 +120,7 @@ Inside each container, these aliases are available:
 |-------|---------|
 | `c` | `claude` |
 | `cs` | `claude --dangerously-skip-permissions` |
+| `g` | `gemini` |
 
 ## npm scripts
 
