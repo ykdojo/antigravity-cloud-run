@@ -1,5 +1,5 @@
-# Load env vars from tmux session
-eval "$(tmux show-environment -s 2>/dev/null)"
+# Load env vars from .env file (written by run.sh)
+[ -f /home/sclaw/.env ] && . /home/sclaw/.env
 
 # Claude Code aliases
 alias c='claude'

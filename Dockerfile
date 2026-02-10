@@ -61,6 +61,7 @@ RUN mkdir -p /home/sclaw/.gemini && \
     echo '{"security":{"auth":{"selectedType":"gemini-api-key"}}}' > /home/sclaw/.gemini/settings.json
 ENV PATH="/home/sclaw/.local/bin:${PATH}"
 ENV DISABLE_AUTOUPDATER=1
+ENV BASH_ENV=/home/sclaw/.env
 
 # Auth: set these env vars for cloud deployment (no interactive login needed)
 # - CLAUDE_CODE_OAUTH_TOKEN: run `claude setup-token` locally to generate

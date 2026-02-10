@@ -154,17 +154,18 @@ if [ ! -f "$SECRETS_DIR/GH_TOKEN" ]; then
     fi
 fi
 
-# Build env var flags from secrets (filename = env var name)
-ENV_FLAGS=""
+# Persist secrets inside container as /home/sclaw/.env
+# This is the single source of truth for env vars - sourced by .bashrc via BASH_ENV
+docker exec "$CONTAINER_NAME" sh -c 'rm -f /home/sclaw/.env && touch /home/sclaw/.env && chmod 600 /home/sclaw/.env'
 for secret_file in "$SECRETS_DIR"/*; do
     if [ -f "$secret_file" ]; then
-        ENV_FLAGS="$ENV_FLAGS -e $(basename "$secret_file")=$(cat "$secret_file")"
+        docker exec "$CONTAINER_NAME" sh -c "echo 'export $(basename "$secret_file")=$(cat "$secret_file")' >> /home/sclaw/.env"
     fi
 done
 
 # Set git config from GitHub account if logged in
 if [ -f "$SECRETS_DIR/GH_TOKEN" ]; then
-    docker exec $ENV_FLAGS "$CONTAINER_NAME" sh -c '
+    docker exec "$CONTAINER_NAME" bash -c '
         if gh auth status >/dev/null 2>&1; then
             USER_DATA=$(gh api user 2>/dev/null)
             if [ -n "$USER_DATA" ]; then
@@ -183,8 +184,8 @@ fi
 # Set title based on session name
 TITLE="SafeClaw - ${SESSION_NAME}"
 
-# Start ttyd with wrapper that passes env vars through to tmux
-docker exec $ENV_FLAGS -d "$CONTAINER_NAME" \
+# Start ttyd with web terminal
+docker exec -d "$CONTAINER_NAME" \
     ttyd -W -t titleFixed="$TITLE" -p 7681 /home/sclaw/ttyd-wrapper.sh
 
 echo ""
@@ -194,15 +195,12 @@ echo "SafeClaw is running at: http://localhost:${PORT}"
 if [ -n "$QUERY" ]; then
     echo "Starting session and sending query..."
     # Start tmux session directly (same as ttyd-wrapper.sh does)
-    docker exec $ENV_FLAGS "$CONTAINER_NAME" bash -c '
+    docker exec "$CONTAINER_NAME" bash -c '
         if ! tmux has-session -t main 2>/dev/null; then
             tmux -f /dev/null new -d -s main
             tmux set -t main status off
             tmux set -t main mouse on
-            while IFS="=" read -r name value; do
-                tmux set-environment -t main "$name" "$value"
-            done < <(env)
-            tmux send-keys -t main "eval \"\$(tmux show-environment -s)\" && claude --dangerously-skip-permissions" Enter
+            tmux send-keys -t main "claude --dangerously-skip-permissions" Enter
         fi
     '
     # Wait for Claude Code to initialize

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pass env vars to tmux session
+# Start tmux session with claude
 
 # Attach to existing session, or create new one with claude
 if tmux has-session -t main 2>/dev/null; then
@@ -10,12 +10,7 @@ else
     tmux set -t main status off
     tmux set -t main mouse on
 
-    # Pass all env vars to the session
-    while IFS='=' read -r name value; do
-        tmux set-environment -t main "$name" "$value"
-    done < <(env)
-
-    # Have the shell load the tmux environment, then start claude
-    tmux send-keys -t main 'eval "$(tmux show-environment -s)" && claude --dangerously-skip-permissions' Enter
+    # Start claude (env vars are loaded via BASH_ENV -> .bashrc -> .env)
+    tmux send-keys -t main 'claude --dangerously-skip-permissions' Enter
     exec tmux attach -t main
 fi
