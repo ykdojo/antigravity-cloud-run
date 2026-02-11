@@ -76,7 +76,9 @@ Conversations are stored as JSONL files (one per conversation). Rebuilding conta
 Always use these methods (they handle ttyd startup):
 - `./scripts/run.sh -s name -n` - create or start a session
 - Dashboard "start" button - start a stopped session
-- `./scripts/restart.sh -s name` - restart ttyd in a running session (also refreshes env vars)
+- `./scripts/restart.sh -s name` - restart ttyd in a running session
+
+Both `run.sh` and `restart.sh` refresh env vars from `~/.config/safeclaw/.secrets/` into the container's `/home/sclaw/.env`.
 
 **Don't use raw `docker start`** - it won't start ttyd inside the container.
 
