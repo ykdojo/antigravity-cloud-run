@@ -134,3 +134,14 @@ Inside each container, these aliases are available:
 | `npm run setup-gemini` | `./scripts/setup-gemini.sh` |
 | `npm run setup-slack` | `./scripts/setup-slack.sh` |
 | `npm run manage-env` | `node scripts/manage-env.js` |
+
+## Skills
+
+Defined in `setup/skills/`.
+
+| Skill | Description | Requires |
+|-------|-------------|----------|
+| gemini | Web research, multimodal tasks (PDFs, images), second opinion | `GEMINI_API_KEY` |
+| slack | Read Slack messages, channels, DMs, and search (read-only) | `SLACK_TOKEN` |
+| yt-dlp | Download YouTube videos, audio, and subtitles/transcripts | - |
+| gdoc | Read publicly shared Google Docs | - |
