@@ -37,17 +37,16 @@ docker exec "$CONTAINER_NAME" tmux kill-server 2>/dev/null
 
 sleep 1
 
-# Build env var flags from all secrets (filename = env var name)
-ENV_FLAGS=""
+# Persist secrets inside container as /home/sclaw/.env
+docker exec "$CONTAINER_NAME" sh -c 'rm -f /home/sclaw/.env && touch /home/sclaw/.env && chmod 600 /home/sclaw/.env'
 if [ -d "$SECRETS_DIR" ]; then
     for secret_file in "$SECRETS_DIR"/*; do
         [ -f "$secret_file" ] || continue
-        secret_name=$(basename "$secret_file")
-        ENV_FLAGS="$ENV_FLAGS -e $secret_name=$(cat "$secret_file")"
+        docker exec "$CONTAINER_NAME" sh -c "echo 'export $(basename "$secret_file")=$(cat "$secret_file")' >> /home/sclaw/.env"
     done
 fi
 
-docker exec $ENV_FLAGS -d "$CONTAINER_NAME" \
+docker exec -d "$CONTAINER_NAME" \
     ttyd -W -t titleFixed="$TITLE" -p 7681 /home/sclaw/ttyd-wrapper.sh
 
 echo "SafeClaw is running at: http://localhost:${PORT}"
