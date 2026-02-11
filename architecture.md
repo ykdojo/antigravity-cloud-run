@@ -22,10 +22,11 @@ All secrets are stored on the host in `~/.config/safeclaw/.secrets/`. Each file 
 
 ### How env vars are passed
 
-1. `run.sh` reads all files in `.secrets/` and builds `-e NAME=value` flags
-2. `docker exec` passes these to the `ttyd-wrapper.sh` process
-3. The wrapper stores them in the tmux session via `tmux set-environment`
-4. `.bashrc` loads them with `eval "$(tmux show-environment -s)"` so all shells (including Claude's bash commands) have access
+1. `run.sh` reads all files in `.secrets/` and writes them to `/home/sclaw/.env` inside the container
+2. `BASH_ENV=/home/sclaw/.env` (set in the Dockerfile) ensures every bash invocation sources it
+3. `.bashrc` also sources `.env` for interactive shells
+
+This means env vars are available everywhere - interactive shells, Claude's bash commands, and `docker exec bash -c` commands.
 
 ### Claude Code
 
