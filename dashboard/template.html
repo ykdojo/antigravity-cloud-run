@@ -608,7 +608,7 @@
             const input = document.getElementById('session-name');
             const pos = input.selectionStart;
             const had = input.value;
-            input.value = input.value.replace(/ /g, '-');
+            input.value = input.value.replace(/ /g, '-').toLowerCase();
             if (input.value !== had) input.setSelectionRange(pos, pos);
             const name = input.value.trim() || 'default';
             if (sessionNameExists(name)) {
@@ -619,7 +619,7 @@
         }
 
         async function submitNewSession() {
-            const name = document.getElementById('session-name').value.replace(/ /g, '-').trim() || 'default';
+            const name = document.getElementById('session-name').value.replace(/ /g, '-').toLowerCase().trim() || 'default';
             const volume = document.getElementById('session-volume').value.trim();
             const query = document.getElementById('session-query').value.trim();
             const openTab = document.getElementById('session-open-tab').checked;
