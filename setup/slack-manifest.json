@@ -1,0 +1,18 @@
+{
+  "display_information": {
+    "name": "SafeClaw",
+    "description": "Read-only Slack access for SafeClaw containers"
+  },
+  "oauth_config": {
+    "scopes": {
+      "user": [
+        "channels:read",
+        "channels:history",
+        "groups:read",
+        "groups:history",
+        "users:read",
+        "search:read"
+      ]
+    }
+  }
+}
