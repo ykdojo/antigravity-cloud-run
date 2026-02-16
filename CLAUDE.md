@@ -18,8 +18,6 @@ This opens http://localhost:7681 in the browser. Verify:
 2. Confirm it shows the correct model (Opus 4.6) and doesn't ask for login
 3. Send a message and confirm it gets a response
 
-If the web terminal is frozen, run `./scripts/restart.sh`.
-
 ## Multiple sessions
 
 Run multiple isolated sessions with `-s`:
@@ -75,10 +73,9 @@ Conversations are stored as JSONL files (one per conversation). Rebuilding conta
 
 Always use these methods (they handle ttyd startup):
 - `./scripts/run.sh -s name -n` - create or start a session
-- Dashboard "start" button - start a stopped session
-- `./scripts/restart.sh -s name` - restart ttyd in a running session
+- Dashboard start/stop buttons - manage running sessions
 
-Both `run.sh` and `restart.sh` refresh env vars from `~/.config/safeclaw/.secrets/` into the container's `/home/sclaw/.env`.
+`run.sh` refreshes env vars from `~/.config/safeclaw/.secrets/` into the container's `/home/sclaw/.env`.
 
 **Don't use raw `docker start`** - it won't start ttyd inside the container.
 

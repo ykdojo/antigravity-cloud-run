@@ -22,7 +22,7 @@ All secrets are stored on the host in `~/.config/safeclaw/.secrets/`. Each file 
 
 ### How env vars are passed
 
-1. `run.sh` and `restart.sh` read all files in `.secrets/` and write them to `/home/sclaw/.env` inside the container
+1. `run.sh` reads all files in `.secrets/` and writes them to `/home/sclaw/.env` inside the container
 2. `BASH_ENV=/home/sclaw/.env` (set in the Dockerfile) ensures every bash invocation sources it
 3. `.bashrc` also sources `.env` for interactive shells
 

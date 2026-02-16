@@ -106,7 +106,6 @@ You can add any additional secrets by creating files in the `.secrets/` director
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
-| `scripts/restart.sh` | Kill and restart the web terminal (ttyd + tmux), refreshing env vars from `.secrets/`. Use `-s name` for named sessions. |
 | `scripts/setup-gemini.sh` | Set up Gemini CLI (optional) |
 | `scripts/setup-slack.sh` | Set up Slack integration (optional) |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
@@ -128,7 +127,6 @@ Inside each container, these aliases are available:
 |---------|------|
 | `npm run build` | `./scripts/build.sh` |
 | `npm start` | `./scripts/run.sh` |
-| `npm run restart` | `./scripts/restart.sh` |
 | `npm run dashboard` | `node dashboard/server.js` |
 | `npm run dashboard:dev` | `nodemon dashboard/server.js` |
 | `npm run setup-gemini` | `./scripts/setup-gemini.sh` |

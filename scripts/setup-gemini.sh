@@ -23,4 +23,4 @@ chmod 600 "$TOKEN_FILE"
 
 echo ""
 echo "Saved to $TOKEN_FILE"
-echo "Restart the container to use: ./scripts/restart.sh"
+echo "Stop and start the container from the dashboard to apply."

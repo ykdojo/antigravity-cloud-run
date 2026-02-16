@@ -5,7 +5,6 @@
   "scripts": {
     "build": "./scripts/build.sh",
     "start": "./scripts/run.sh",
-    "restart": "./scripts/restart.sh",
     "setup-gemini": "./scripts/setup-gemini.sh",
     "setup-slack": "./scripts/setup-slack.sh",
     "dashboard": "node dashboard/server.js",
