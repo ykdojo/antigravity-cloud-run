@@ -63,11 +63,15 @@ Opens at http://localhost:7680. Shows all sessions with:
 - Live iframes of active sessions
 - Auto-refreshes via Docker events (SSE)
 
-## Conversation history
+## Conversation history and memory
 
-Each session's conversation history persists at `~/.config/safeclaw/sessions/<session-name>/` on the host, mounted to `/home/sclaw/.claude/projects/` in the container.
+Each session's data persists at `~/.config/safeclaw/sessions/<session-name>/` on the host, mounted to `/home/sclaw/.claude/projects/` in the container.
 
-Conversations are stored as JSONL files (one per conversation). Rebuilding containers or restarting sessions won't affect history.
+This includes:
+- **Conversations:** JSONL files (one per conversation)
+- **Memory:** Auto memory at `-home-sclaw/memory/MEMORY.md` (loaded into system prompt each conversation)
+
+Rebuilding containers or restarting sessions won't affect either.
 
 ## Starting and stopping containers
 

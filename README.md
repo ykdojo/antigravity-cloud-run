@@ -77,15 +77,19 @@ Opens at http://localhost:7680 with:
 - Auto [half-clone](https://github.com/ykdojo/claude-code-tips#half-clone-to-reduce-context) hook at 85% context usage
 - `--dangerously-skip-permissions` enabled (because it's containerized)
 
-## Conversation history
+## Conversation history and memory
 
-Each session's conversation history persists locally at:
+Each session's data persists locally at:
 
 ```
 ~/.config/safeclaw/sessions/<session-name>/
 ```
 
-This maps to `/home/sclaw/.claude/projects/` inside the container. Conversations are stored as JSONL files. Rebuilding containers or restarting sessions won't affect your history.
+This maps to `/home/sclaw/.claude/projects/` inside the container and includes:
+- **Conversations** - JSONL files (one per conversation)
+- **Memory** - Auto memory at `-home-sclaw/memory/MEMORY.md`, loaded into the system prompt each conversation
+
+Rebuilding containers or restarting sessions won't affect your history or memory.
 
 ## Authentication
 
