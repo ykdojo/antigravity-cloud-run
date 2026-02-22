@@ -373,8 +373,21 @@
             font-family: inherit;
             font-size: 14px;
         }
-        .modal-submit:hover {
+        .modal-submit:hover:not(:disabled) {
             background: #4a6050;
+        }
+        .modal-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .modal.creating .modal-field input,
+        .modal.creating .modal-field-checkbox input {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .modal.creating .modal-cancel {
+            opacity: 0.5;
+            pointer-events: none;
         }
     </style>
     <script>
@@ -630,6 +643,12 @@
                 return;
             }
 
+            const modal = document.querySelector('#new-session-modal .modal');
+            const btn = modal.querySelector('.modal-submit');
+            modal.classList.add('creating');
+            btn.disabled = true;
+            btn.textContent = 'creating...';
+
             const res = await fetch('/api/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -643,6 +662,9 @@
                 }
                 location.reload();
             } else {
+                modal.classList.remove('creating');
+                btn.disabled = false;
+                btn.textContent = 'create';
                 alert(data.error || 'Failed to create session');
             }
         }
