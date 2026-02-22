@@ -210,9 +210,13 @@
             font-family: inherit;
             font-size: 12px;
         }
-        .stop-btn:hover {
+        .stop-btn:hover:not(:disabled) {
             background: #5c4033;
             color: #c9c5c0;
+        }
+        .stop-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .inactive {
             color: #6b6560;
@@ -395,6 +399,8 @@
         function stopSession(name, btn) {
             // If already confirming, do the stop
             if (btn.dataset.confirming === 'true') {
+                btn.disabled = true;
+                btn.textContent = 'stopping';
                 fetch('/api/stop', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -447,6 +453,9 @@
         // Stop from iframe header (same logic, works with links)
         function stopSessionLink(name, link) {
             if (link.dataset.confirming === 'true') {
+                link.style.opacity = '0.5';
+                link.style.pointerEvents = 'none';
+                link.textContent = 'stopping';
                 fetch('/api/stop', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
