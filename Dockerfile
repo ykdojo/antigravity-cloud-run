@@ -85,7 +85,8 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_CODE_VERSION}
 # === SETUP Claude Code ===
 
 # Install DX plugin and Playwright MCP server
-RUN claude plugin marketplace add ykdojo/claude-code-tips && \
+ARG CLAUDE_CODE_TIPS_VERSION=v0.26.2
+RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git#${CLAUDE_CODE_TIPS_VERSION} && \
     claude plugin install dx@ykdojo && \
     claude mcp add playwright -- playwright-mcp --headless --browser chromium --no-sandbox
 
