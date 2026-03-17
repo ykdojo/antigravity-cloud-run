@@ -147,3 +147,7 @@ Defined in `setup/skills/`.
 | slack | Read Slack messages, channels, DMs, and search (read-only) | `SLACK_TOKEN` |
 | yt-dlp | Download YouTube videos, audio, and subtitles/transcripts | - |
 | gdoc | Read publicly shared Google Docs | - |
+
+## Featured in
+
+- [claude-code-tips](https://github.com/ykdojo/claude-code-tips)
