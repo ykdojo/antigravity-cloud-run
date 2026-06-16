@@ -89,13 +89,10 @@ ENV BASH_ENV=/home/sclaw/.env
 COPY --chown=sclaw:sclaw setup/CLAUDE.md /home/sclaw/.claude/CLAUDE.md
 COPY --chown=sclaw:sclaw setup/settings.json /home/sclaw/.claude/settings.json
 
-# Install scripts (check-context hook, context bar status line)
+# Install scripts (context bar status line)
 RUN mkdir -p /home/sclaw/.claude/scripts && \
-    curl -sLo /home/sclaw/.claude/scripts/check-context.sh \
-      https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/scripts/check-context.sh && \
     curl -sLo /home/sclaw/.claude/scripts/context-bar.sh \
       https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/scripts/context-bar.sh && \
-    chmod +x /home/sclaw/.claude/scripts/check-context.sh && \
     chmod +x /home/sclaw/.claude/scripts/context-bar.sh
 
 RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_CODE_VERSION}

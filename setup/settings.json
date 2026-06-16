@@ -11,17 +11,5 @@
   "attribution": {
     "commit": "",
     "pr": ""
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/scripts/check-context.sh"
-          }
-        ]
-      }
-    ]
   }
 }

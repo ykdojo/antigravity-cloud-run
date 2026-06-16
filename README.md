@@ -72,7 +72,6 @@ Opens at http://localhost:7680 with:
 - Claude Code version pinned (currently 2.1.170)
 - `autoCompactEnabled: false` - prevents automatic context compaction
 - `promptSuggestionEnabled: false` - disables prompt suggestions
-- Auto [half-clone](https://github.com/ykdojo/claude-code-tips#half-clone-to-reduce-context) hook at 85% context usage
 - `--dangerously-skip-permissions` enabled (because it's containerized)
 
 ## Conversation history and memory
