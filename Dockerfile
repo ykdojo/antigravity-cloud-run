@@ -113,6 +113,11 @@ RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git
 RUN jq '. + {hasCompletedOnboarding: true, bypassPermissionsModeAccepted: true, autoCompactEnabled: false}' /home/sclaw/.claude.json > /tmp/.claude.json.tmp && \
     mv /tmp/.claude.json.tmp /home/sclaw/.claude.json
 
+# Set default model (must be after plugin install which rewrites settings.json).
+# Without this, the Claude API account defaults to Sonnet, not Opus.
+RUN jq '. + {model: "claude-opus-4-8"}' /home/sclaw/.claude/settings.json > /tmp/settings.json.tmp && \
+    mv /tmp/settings.json.tmp /home/sclaw/.claude/settings.json
+
 # Shell aliases and shortcuts
 COPY --chown=sclaw:sclaw setup/.bashrc /tmp/.bashrc
 RUN cat /tmp/.bashrc >> /home/sclaw/.bashrc && rm /tmp/.bashrc
