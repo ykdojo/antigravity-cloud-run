@@ -25,7 +25,7 @@ RUN apt-get update && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
     apt-get update && \
     apt-get install -y gh && \
-    apt-get install -y --no-install-recommends git openssh-client jq tmux ttyd vim python3-pip && \
+    apt-get install -y --no-install-recommends git openssh-client jq tmux ttyd vim python3-pip unzip && \
     npm install -g yarn && \
     # clean apt cache
     rm -rf /var/lib/apt/lists/* && \
@@ -36,11 +36,33 @@ RUN apt-get update && \
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Install MCP globally, then use its bundled Playwright to install Chromium
-# This keeps browser versions in sync with the MCP package
+# Install MCP globally, then prefetch the Chromium browser artifacts with curl.
+# Playwright's own downloader has no stall timeout: on some networks the CDN
+# connection establishes but then stops sending data mid-transfer, and the
+# install hangs forever. curl's --speed-time aborts a stalled transfer and
+# --retry reconnects until one succeeds. We fetch each artifact (URLs/paths come
+# from --dry-run, so this stays version-agnostic) into Playwright's browser dir
+# and mark it INSTALLATION_COMPLETE, so `playwright install` finds them already
+# present and skips its download. The final install is a fast no-op verification
+# (timeout-guarded so a missed artifact fails the build instead of hanging).
 RUN npm install -g @playwright/mcp@${PLAYWRIGHT_MCP_VERSION} && \
-    mkdir /ms-playwright && \
-    /usr/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright install chromium --with-deps && \
+    mkdir -p /ms-playwright && \
+    PW=/usr/lib/node_modules/@playwright/mcp/node_modules/.bin/playwright && \
+    "$PW" install-deps chromium && \
+    "$PW" install --dry-run chromium | \
+        awk '/Install location:/{loc=$3} /Download url:/{print loc, $3}' | \
+        sort -u > /tmp/pw-pairs.txt && \
+    while read -r loc url; do \
+        echo "prefetching $loc"; \
+        mkdir -p "$loc" || exit 1; \
+        curl -fL --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 20 \
+             --speed-limit 50000 --speed-time 15 -o /tmp/pw.zip "$url" || exit 1; \
+        unzip -q -o /tmp/pw.zip -d "$loc" || exit 1; \
+        touch "$loc/INSTALLATION_COMPLETE"; \
+        rm -f /tmp/pw.zip; \
+    done < /tmp/pw-pairs.txt && \
+    timeout 300 "$PW" install chromium && \
+    rm -f /tmp/pw-pairs.txt && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf ~/.npm/ && \
     chmod -R 777 /ms-playwright
