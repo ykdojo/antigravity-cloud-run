@@ -5,9 +5,6 @@
 alias c='claude'
 alias cs='claude --dangerously-skip-permissions'
 
-# Gemini alias
-alias g='gemini'
-
 # Claude --fs shortcut
 claude() {
   local args=()

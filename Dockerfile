@@ -4,8 +4,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG TZ=America/Los_Angeles
 ARG NODE_VERSION=24
 ARG PLAYWRIGHT_MCP_VERSION=0.0.62
-ARG CLAUDE_CODE_VERSION=2.1.32
-ARG GEMINI_CLI_VERSION=0.26.0
+ARG CLAUDE_CODE_VERSION=2.1.170
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -46,9 +45,9 @@ RUN npm install -g @playwright/mcp@${PLAYWRIGHT_MCP_VERSION} && \
     rm -rf ~/.npm/ && \
     chmod -R 777 /ms-playwright
 
-# === INSTALL node-lief, Slack SDK, and Gemini CLI ===
+# === INSTALL node-lief and Slack SDK ===
 
-RUN npm install -g node-lief @slack/web-api @google/gemini-cli@${GEMINI_CLI_VERSION}
+RUN npm install -g node-lief @slack/web-api
 ENV NODE_PATH=/usr/lib/node_modules
 
 # === INSTALL Claude Code (native binary) ===
@@ -56,9 +55,6 @@ ENV NODE_PATH=/usr/lib/node_modules
 USER sclaw
 WORKDIR /home/sclaw
 
-# Pre-configure Gemini CLI to use API key auth (no interactive prompt)
-RUN mkdir -p /home/sclaw/.gemini && \
-    echo '{"security":{"auth":{"selectedType":"gemini-api-key"}}}' > /home/sclaw/.gemini/settings.json
 ENV PATH="/home/sclaw/.local/bin:${PATH}"
 ENV DISABLE_AUTOUPDATER=1
 ENV BASH_ENV=/home/sclaw/.env
@@ -85,7 +81,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_CODE_VERSION}
 # === SETUP Claude Code ===
 
 # Install DX plugin and Playwright MCP server
-ARG CLAUDE_CODE_TIPS_VERSION=v0.26.7
+ARG CLAUDE_CODE_TIPS_VERSION=v0.26.10
 RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git#${CLAUDE_CODE_TIPS_VERSION} && \
     claude plugin install dx@ykdojo && \
     claude mcp add playwright -- playwright-mcp --headless --browser chromium --no-sandbox
@@ -94,10 +90,6 @@ RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git
 # See: https://github.com/anthropics/claude-code/issues/8938
 RUN jq '. + {hasCompletedOnboarding: true, bypassPermissionsModeAccepted: true, autoCompactEnabled: false}' /home/sclaw/.claude.json > /tmp/.claude.json.tmp && \
     mv /tmp/.claude.json.tmp /home/sclaw/.claude.json
-
-# Set default model (must be after plugin install which rewrites settings.json)
-RUN jq '. + {model: "claude-opus-4-6"}' /home/sclaw/.claude/settings.json > /tmp/settings.json.tmp && \
-    mv /tmp/settings.json.tmp /home/sclaw/.claude/settings.json
 
 # Shell aliases and shortcuts
 COPY --chown=sclaw:sclaw setup/.bashrc /tmp/.bashrc
@@ -110,18 +102,4 @@ RUN chmod +x /home/sclaw/ttyd-wrapper.sh
 # Skills and tools
 COPY --chown=sclaw:sclaw setup/skills /home/sclaw/.claude/skills
 COPY --chown=sclaw:sclaw setup/tools /home/sclaw/tools
-
-# === PATCH Claude Code ===
-
-RUN mkdir -p /tmp/patches && \
-    cd /tmp && \
-    curl -sLO https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/system-prompt/${CLAUDE_CODE_VERSION}/patch-native.sh && \
-    curl -sLO https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/system-prompt/${CLAUDE_CODE_VERSION}/patch-cli.js && \
-    curl -sLO https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/system-prompt/${CLAUDE_CODE_VERSION}/native-extract.js && \
-    curl -sLO https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/system-prompt/${CLAUDE_CODE_VERSION}/native-repack.js && \
-    curl -sL "https://api.github.com/repos/ykdojo/claude-code-tips/contents/system-prompt/${CLAUDE_CODE_VERSION}/patches" | \
-    jq -r '.[].download_url' | xargs -I{} curl -sLO --output-dir patches {} && \
-    chmod +x patch-native.sh && \
-    ./patch-native.sh /home/sclaw/.local/share/claude/versions/${CLAUDE_CODE_VERSION} && \
-    rm -rf /tmp/patches /tmp/*.sh /tmp/*.js
 

@@ -54,24 +54,22 @@ Opens at http://localhost:7680 with:
 
 ## Optional integrations
 
-- `./scripts/setup-gemini.sh` - Add Gemini CLI access
 - `./scripts/setup-slack.sh` - Add Slack read access
 
 ## What's included
 
 - Ubuntu 24.04
 - Node.js 24 (LTS)
-- Claude Code 2.1.32 (with [optimized system prompt](https://github.com/ykdojo/claude-code-tips#tip-15-slim-down-the-system-prompt) - starts at ~5% context instead of ~9%)
+- Claude Code 2.1.170
 - GitHub CLI with auto-configured git user
 - Playwright MCP with Chromium
-- Gemini CLI 0.26.0 (optional - requires API key)
 - Slack read-only skill and tool (optional - requires token)
 - [DX plugin](https://github.com/ykdojo/claude-code-tips#tip-44-install-the-dx-plugin), [custom status line](https://github.com/ykdojo/claude-code-tips#tip-0-customize-your-status-line), [shell aliases](#aliases)
 - ttyd web terminal + tmux
 
 ## Sensible defaults
 
-- Claude Code version pinned (currently 2.1.32)
+- Claude Code version pinned (currently 2.1.170)
 - `autoCompactEnabled: false` - prevents automatic context compaction
 - `promptSuggestionEnabled: false` - disables prompt suggestions
 - Auto [half-clone](https://github.com/ykdojo/claude-code-tips#half-clone-to-reduce-context) hook at 85% context usage
@@ -99,7 +97,6 @@ Tokens are stored in `~/.config/safeclaw/.secrets/` and injected as env vars on 
 |------|-----------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | `claude setup-token` (valid 1 year) |
 | `GH_TOKEN` | `gh auth token` or create a PAT at github.com/settings/tokens |
-| `GEMINI_API_KEY` | Optional - get from aistudio.google.com |
 | `SLACK_TOKEN` | Optional - `./scripts/setup-slack.sh` |
 
 You can add any additional secrets by creating files in the `.secrets/` directory.
@@ -110,7 +107,6 @@ You can add any additional secrets by creating files in the `.secrets/` director
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
-| `scripts/setup-gemini.sh` | Set up Gemini CLI (optional) |
 | `scripts/setup-slack.sh` | Set up Slack integration (optional) |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
@@ -123,7 +119,6 @@ Inside each container, these aliases are available:
 |-------|---------|
 | `c` | `claude` |
 | `cs` | `claude --dangerously-skip-permissions` |
-| `g` | `gemini` |
 
 ## npm scripts
 
@@ -133,7 +128,6 @@ Inside each container, these aliases are available:
 | `npm start` | `./scripts/run.sh` |
 | `npm run dashboard` | `node dashboard/server.js` |
 | `npm run dashboard:dev` | `nodemon dashboard/server.js` |
-| `npm run setup-gemini` | `./scripts/setup-gemini.sh` |
 | `npm run setup-slack` | `./scripts/setup-slack.sh` |
 | `npm run manage-env` | `node scripts/manage-env.js` |
 
@@ -143,7 +137,6 @@ Defined in `setup/skills/`.
 
 | Skill | Description | Requires |
 |-------|-------------|----------|
-| gemini | Web research, multimodal tasks (PDFs, images), second opinion | `GEMINI_API_KEY` |
 | slack | Read Slack messages, channels, DMs, and search (read-only) | `SLACK_TOKEN` |
 | yt-dlp | Download YouTube videos, audio, and subtitles/transcripts | - |
 | gdoc | Read publicly shared Google Docs | - |
