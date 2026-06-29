@@ -107,7 +107,7 @@ RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git
 
 # Skip onboarding so CLAUDE_CODE_OAUTH_TOKEN works in interactive mode
 # See: https://github.com/anthropics/claude-code/issues/8938
-RUN jq '. + {hasCompletedOnboarding: true, hasAcceptedBypassPermissionsMode: true, autoCompactEnabled: false}' /home/sclaw/.claude.json > /tmp/.claude.json.tmp && \
+RUN jq '. + {hasCompletedOnboarding: true, autoCompactEnabled: false}' /home/sclaw/.claude.json > /tmp/.claude.json.tmp && \
     mv /tmp/.claude.json.tmp /home/sclaw/.claude.json
 
 # Set default model (must be after plugin install which rewrites settings.json).
