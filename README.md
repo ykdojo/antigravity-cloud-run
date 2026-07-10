@@ -11,6 +11,7 @@ See [architecture.md](architecture.md) for design details.
 - **Isolated** - agy runs with bypass permissions, but can't touch your host machine.
 - **Lightweight** - Spin up, stop, or delete sessions in seconds. Much faster than a full VM.
 - **Portable** - Works on any machine with Docker. Same environment everywhere.
+- **Cloud-ready** - The exact same container deploys to Cloud Run. Local for tinkering, cloud for sessions you can reach from anywhere.
 
 This lets you run agy with `--dangerously-skip-permissions` safely and fast.
 
