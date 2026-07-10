@@ -30,6 +30,8 @@ Onboarding is fully pre-answered so fresh sessions go straight to the prompt: th
 
 All other secrets are stored on the host in `~/.config/agrun/.secrets/`. Each file becomes an environment variable (filename = env var name).
 
+Scripts manage these for you: `npm run manage-env` (`scripts/manage-env.js`) lists, adds, and deletes keys interactively; `scripts/setup-slack.sh` walks through creating a Slack app and stores `SLACK_TOKEN`; and `run.sh` offers to set up `GH_TOKEN` on first run.
+
 How env vars are passed:
 
 1. `run.sh` reads all files in `.secrets/` and writes them to `/home/agrun/.env` inside the container
