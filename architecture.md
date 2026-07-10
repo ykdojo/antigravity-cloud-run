@@ -53,9 +53,13 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 `~/.gemini` is a volume mount, so baked-in defaults can't live there directly in the image. Instead the Dockerfile stages them in `/home/agrun/.gemini-defaults` (AGENTS.md, `antigravity-cli/settings.json`, statusline script, Playwright MCP config), and `run.sh` seeds them into `~/.gemini` on every start with `cp -an` - existing files are never overwritten, so user changes and credentials win.
 
-## Cloud Run (planned)
+## Cloud Run
 
-- Require IAM auth; access via `gcloud run services proxy` (or IAP for browser sharing). Never `--allow-unauthenticated` - ttyd is a remote shell.
-- Secret Manager for tokens, mounted as env vars
-- GCS FUSE volume for `~/.gemini` session persistence
-- min/max instances = 1; ttyd WebSocket connections drop at Cloud Run's 60-minute cap, tmux absorbs reconnects
+One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`. Instances of a single service can't act as sessions: Cloud Run treats them as interchangeable replicas, so sessions map to services.
+
+- **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker. Never expose ttyd publicly - it's a remote shell.
+- **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it to `~/.gemini/antigravity-cli/antigravity-oauth-token` if the session volume doesn't have one yet.
+- **Persistence:** a GCS bucket per session is FUSE-mounted at `~/.gemini` (requires gen2 execution environment). Caveat to watch: agy keeps SQLite files there, and gcsfuse has no POSIX locking - single-instance access (max-instances=1) should be safe, but this is empirically validated, not guaranteed.
+- **Entrypoint:** the image's default command is `entrypoint-cloud.sh` (seed defaults, restore token, exec ttyd on `$PORT`). Local containers are unaffected: `run.sh` overrides the command with `sleep infinity` and manages ttyd itself.
+- **Scaling:** min/max instances = 1 for always-on, or `-z` for scale-to-zero (cheaper; the live terminal dies on idle but conversations resume with `agy -c` from the GCS mount). ttyd WebSocket connections drop at Cloud Run's 60-minute request cap; tmux absorbs reconnects.
+- **Statusline note:** files on gcsfuse carry no executable bit, so settings invoke the statusline as `bash .../statusline.sh`.

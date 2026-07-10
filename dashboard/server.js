@@ -29,6 +29,205 @@ startDockerEvents();
 
 const PORT = 7680;
 const TEMPLATE_PATH = path.join(__dirname, 'template.html');
+const CLOUD_CONFIG_PATH = path.join(process.env.HOME, '.config', 'agrun', 'cloud.json');
+
+// Cloud sessions (Cloud Run services, one per session)
+
+// Written by scripts/deploy-cloud.sh on successful deploy
+function getCloudConfig() {
+    try {
+        return JSON.parse(fs.readFileSync(CLOUD_CONFIG_PATH, 'utf8'));
+    } catch (e) {
+        return null;
+    }
+}
+
+// Sessions currently being deployed (deploy-cloud.sh runs for minutes)
+const cloudDeploying = new Set();
+
+// Live proxies: service name -> { port, proc }. `gcloud run services proxy`
+// opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
+// iframe just like a local container (IAM is still enforced on every request).
+const cloudProxies = new Map();
+let nextProxyPort = 7781;
+
+// Real terminal readiness: service name -> true once agy has painted. The
+// iframe is cross-origin so the page can't inspect it; instead the server opens
+// the ttyd WebSocket itself and watches for agy's banner. This connecting also
+// warms the instance (first WS connect triggers agy launch in the container).
+const cloudReady = new Map();
+
+function probeTerminalReady(name, port) {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; cloudReady.set(name, true); } };
+    const attempt = async (triesLeft) => {
+        if (!cloudProxies.has(name)) return; // disconnected
+        let token = '';
+        try {
+            const r = await fetch(`http://127.0.0.1:${port}/token`);
+            token = (await r.json()).token || '';
+        } catch (e) {
+            if (triesLeft > 0) return setTimeout(() => attempt(triesLeft - 1), 1500);
+        }
+        let ws;
+        try {
+            ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, 'tty');
+        } catch (e) {
+            if (triesLeft > 0) return setTimeout(() => attempt(triesLeft - 1), 1500);
+            return done();
+        }
+        ws.binaryType = 'arraybuffer';
+        let acc = '';
+        const giveUp = setTimeout(() => { try { ws.close(); } catch (e) {} done(); }, 90000);
+        ws.onopen = () => ws.send(JSON.stringify({ AuthToken: token, columns: 120, rows: 30 }));
+        ws.onmessage = (ev) => {
+            const buf = new Uint8Array(ev.data);
+            if (String.fromCharCode(buf[0]) === '0') { // OUTPUT frame
+                acc += new TextDecoder().decode(buf.slice(1));
+                if (/Antigravity CLI/.test(acc)) {
+                    clearTimeout(giveUp);
+                    try { ws.close(); } catch (e) {}
+                    done();
+                }
+            }
+        };
+        ws.onerror = () => {};
+        ws.onclose = () => {
+            clearTimeout(giveUp);
+            if (settled || !cloudProxies.has(name)) return;
+            if (triesLeft > 0) setTimeout(() => attempt(triesLeft - 1), 1500);
+            else done(); // give up gracefully - dismiss the overlay rather than hang
+        };
+    };
+    attempt(20);
+}
+
+function startCloudProxy(name, callback) {
+    const existing = cloudProxies.get(name);
+    if (existing) {
+        callback({ success: true, port: existing.port, url: `http://localhost:${existing.port}` });
+        return;
+    }
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ success: false, error: 'no cloud config' });
+        return;
+    }
+    const port = nextProxyPort++;
+    const proc = spawn('gcloud', [
+        'run', 'services', 'proxy', name,
+        '--project', config.project, '--region', config.region, '--port', String(port)
+    ], { detached: false, stdio: 'ignore' });
+    cloudProxies.set(name, { port, proc });
+    cloudReady.delete(name);
+    proc.on('exit', () => { cloudProxies.delete(name); cloudReady.delete(name); });
+    // Poll until the proxy answers (auth handshake + cold start can take a bit)
+    const http = require('http');
+    let tries = 0;
+    const check = () => {
+        tries++;
+        const req = http.get({ host: '127.0.0.1', port, timeout: 2000 }, res => {
+            res.destroy();
+            probeTerminalReady(name, port); // watch for agy to finish painting
+            callback({ success: true, port, url: `http://localhost:${port}` });
+        });
+        req.on('error', () => {
+            if (!cloudProxies.has(name)) { callback({ success: false, error: 'proxy exited' }); return; }
+            if (tries >= 30) { callback({ success: true, port, url: `http://localhost:${port}`, slow: true }); return; }
+            setTimeout(check, 1000);
+        });
+        req.on('timeout', () => req.destroy());
+    };
+    setTimeout(check, 1000);
+}
+
+function stopCloudProxy(name, callback) {
+    const entry = cloudProxies.get(name);
+    if (entry) {
+        try { entry.proc.kill(); } catch (e) {}
+        cloudProxies.delete(name);
+    }
+    cloudReady.delete(name);
+    if (callback) callback({ success: true });
+}
+
+function getCloudSessions(callback) {
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ configured: false, sessions: [] });
+        return;
+    }
+    const { exec } = require('child_process');
+    const cmd = `gcloud run services list --project ${config.project} --region ${config.region}` +
+        ` --filter 'metadata.labels.agrun=session' --format json`;
+    exec(cmd, { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
+        if (err) {
+            callback({ configured: true, error: err.message.split('\n')[0], sessions: [] });
+            return;
+        }
+        let services = [];
+        try { services = JSON.parse(stdout); } catch (e) {}
+        const sessions = services.map(svc => {
+            const name = svc.metadata.name;
+            const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
+            const minInstances = svc.spec?.template?.metadata?.annotations?.['autoscaling.knative.dev/minScale'] || '0';
+            const proxy = cloudProxies.get(name);
+            return {
+                name,
+                displayName: name.replace('agrun-', ''),
+                ready,
+                alwaysOn: minInstances !== '0',
+                deploying: cloudDeploying.has(name),
+                connected: !!proxy,
+                terminalReady: !!cloudReady.get(name),
+                url: proxy ? `http://localhost:${proxy.port}` : null,
+                proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
+            };
+        });
+        // Include sessions still deploying that don't show up in the list yet
+        cloudDeploying.forEach(name => {
+            if (!sessions.some(s => s.name === name)) {
+                sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
+            }
+        });
+        callback({ configured: true, project: config.project, region: config.region, sessions });
+    });
+}
+
+function createCloudSession(options, callback) {
+    const name = (options.name || 'default').trim();
+    const serviceName = `agrun-${name}`;
+    if (!/^[a-z0-9-]+$/.test(name)) {
+        callback({ success: false, error: 'name must be lowercase letters, digits, dashes' });
+        return;
+    }
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
+    const args = ['-s', name];
+    if (options.zeroScale) args.push('-z');
+    const config = getCloudConfig();
+    if (config) args.push('-P', config.project, '-r', config.region);
+    cloudDeploying.add(serviceName);
+    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
+    const out = fs.openSync(logPath, 'w');
+    const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
+    child.on('exit', code => {
+        cloudDeploying.delete(serviceName);
+        fs.closeSync(out);
+    });
+    child.unref();
+    callback({ success: true, deploying: serviceName, log: logPath });
+}
+
+function deleteCloudSession(name, callback) {
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ success: false });
+        return;
+    }
+    const { exec } = require('child_process');
+    exec(`gcloud run services delete ${name} --project ${config.project} --region ${config.region} --quiet`,
+        { timeout: 120000 }, (err) => callback({ success: !err }));
+}
 
 function getSessions() {
     const sessions = [];
@@ -276,6 +475,51 @@ const server = http.createServer((req, res) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(result));
         });
+    } else if (url.pathname === '/api/cloud-sessions') {
+        getCloudSessions(result => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        });
+    } else if (url.pathname === '/api/cloud-create' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            createCloudSession(JSON.parse(body), result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-delete' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            stopCloudProxy(name);
+            deleteCloudSession(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-connect' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            startCloudProxy(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-disconnect' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            stopCloudProxy(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
     } else if (url.pathname === '/api/events') {
         // Server-Sent Events for real-time updates
         res.writeHead(200, {
@@ -298,3 +542,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
     console.log(`Dashboard: http://localhost:${PORT}`);
 });
+
+// Kill any live cloud proxies when the dashboard exits
+function shutdownProxies() {
+    cloudProxies.forEach(({ proc }) => { try { proc.kill(); } catch (e) {} });
+    process.exit(0);
+}
+process.on('SIGINT', shutdownProxies);
+process.on('SIGTERM', shutdownProxies);

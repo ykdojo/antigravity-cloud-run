@@ -393,6 +393,18 @@
             opacity: 0.5;
             pointer-events: none;
         }
+        .zone-title { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin: 28px 0 10px; }
+        .zone-header { display: flex; align-items: center; justify-content: space-between; margin-top: 36px; }
+        .zone-header .zone-title { margin: 0; }
+        .proxy-btn { cursor: pointer; }
+        .cloud-badge { font-size: 10px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.6; margin-left: 6px; }
+        .frame-body { position: relative; flex: 1; display: flex; }
+        .frame-body iframe { flex: 1; width: 100%; border: 0; }
+        .frame-loading { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; cursor: pointer; background: #1a1a1a; color: #bbb; }
+        .frame-loading p { margin: 0; font-size: 14px; letter-spacing: 1px; }
+        .frame-loading-sub { max-width: 340px; font-size: 12px; opacity: 0.55; letter-spacing: 0; }
+        .spinner { width: 26px; height: 26px; border: 3px solid rgba(255,255,255,0.15); border-top-color: #e0913a; border-radius: 50%; animation: spin 0.9s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
     <script>
         let activeConfirm = null;
@@ -717,6 +729,158 @@
             }
         });
 
+
+        // === Cloud sessions ===
+
+        function openNewCloudModal() { document.getElementById('new-cloud-modal').classList.add('open'); }
+        function closeNewCloudModal() { document.getElementById('new-cloud-modal').classList.remove('open'); }
+
+        async function loadCloudSessions() {
+            const el = document.getElementById('cloud-content');
+            if (!el) return;
+            try {
+                const res = await fetch('/api/cloud-sessions');
+                const data = await res.json();
+                if (!data.configured) {
+                    el.innerHTML = '<div class="empty"><p>no cloud config yet - run <code>./scripts/deploy-cloud.sh</code> once to set up</p></div>';
+                    return;
+                }
+                if (data.error) {
+                    el.innerHTML = `<div class="empty"><p>cloud error: ${data.error}</p></div>`;
+                    return;
+                }
+                if (data.sessions.length === 0) {
+                    el.innerHTML = '<div class="empty"><p>no cloud sessions</p></div>';
+                    return;
+                }
+                const rows = data.sessions.map(s => {
+                    const status = s.deploying ? 'deploying...' : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready'));
+                    const badge = s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>';
+                    let connect = '-';
+                    if (s.ready && !s.deploying) {
+                        connect = s.connected
+                            ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
+                            : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`;
+                    }
+                    const del = s.deploying ? '' : (s.connected
+                        ? `<button class="stop-btn" onclick="disconnectCloudSession('${s.name}', this)">disconnect</button>`
+                        : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`);
+                    return `<tr class="${s.connected ? '' : 'inactive-row'}" data-cloud-name="${s.name}" data-cloud-url="${s.url || ''}">
+                        <td>${s.displayName}${badge}</td>
+                        <td>${status}</td>
+                        <td class="volume">${connect}</td>
+                        <td>${del}</td>
+                    </tr>`;
+                }).join('');
+                el.innerHTML = `<div class="table-wrapper"><table class="sessions">
+                    <thead><tr><th>Session</th><th>Status</th><th>Connect</th><th></th></tr></thead>
+                    <tbody>${rows}</tbody></table></div>`;
+
+                // Live iframes for connected cloud sessions (via the local proxy)
+                const connected = data.sessions.filter(s => s.connected && s.url);
+                const framesHtml = connected.map(s => `
+                    <div class="frame" id="cloud-frame-${s.name}">
+                        <div class="frame-bar">
+                            <span>${s.displayName} <span class="cloud-badge">cloud</span></span>
+                            <div class="frame-actions">
+                                <a href="#" onclick="disconnectCloudSession('${s.name}'); return false;">disconnect</a>
+                                <a href="#" onclick="document.querySelector('#cloud-frame-${s.name} iframe').src='${s.url}'; return false;">refresh</a>
+                                <a href="${s.url}" target="_blank">open</a>
+                            </div>
+                        </div>
+                        <div class="frame-body">
+                            <div class="frame-loading" onclick="this.remove()">
+                                <div class="spinner"></div>
+                                <p>cold starting</p>
+                                <p class="frame-loading-sub">Cloud Run is booting agy in the container. This clears automatically once the terminal is ready.</p>
+                            </div>
+                            <iframe src="${s.url}"></iframe>
+                        </div>
+                    </div>`).join('');
+                let framesEl = document.getElementById('cloud-frames');
+                if (!framesEl) {
+                    framesEl = document.createElement('div');
+                    framesEl.id = 'cloud-frames';
+                    el.after(framesEl);
+                }
+                framesEl.className = 'frames' + (connected.length === 1 ? ' single' : '');
+                // Only rebuild iframes when the connected set changes, so we don't
+                // reload a live terminal on every poll
+                const key = connected.map(s => s.name + s.url).join(',');
+                if (framesEl.dataset.key !== key) {
+                    framesEl.innerHTML = framesHtml;
+                    framesEl.dataset.key = key;
+                }
+                // Drop each cold-start overlay the moment the server confirms agy
+                // has actually painted in that session (not a fixed timer)
+                connected.forEach(s => {
+                    if (s.terminalReady) {
+                        const ov = document.querySelector(`#cloud-frame-${s.name} .frame-loading`);
+                        if (ov) ov.remove();
+                    }
+                });
+                // While any connected session is still booting, poll quickly so the
+                // overlay clears promptly; otherwise fall back to the 30s cadence
+                if (connected.some(s => !s.terminalReady)) {
+                    clearTimeout(window._cloudFastPoll);
+                    window._cloudFastPoll = setTimeout(loadCloudSessions, 2000);
+                }
+            } catch (e) {
+                el.innerHTML = '<div class="empty"><p>dashboard server unreachable</p></div>';
+            }
+        }
+
+        async function connectCloudSession(name, btn) {
+            if (btn) { btn.disabled = true; btn.textContent = 'connecting...'; }
+            const res = await fetch('/api/cloud-connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            const data = await res.json();
+            if (!data.success && btn) { btn.disabled = false; btn.textContent = 'connect'; alert('connect failed: ' + (data.error || 'unknown')); return; }
+            loadCloudSessions();
+        }
+
+        async function disconnectCloudSession(name, btn) {
+            if (btn) { btn.disabled = true; btn.textContent = 'disconnecting...'; }
+            await fetch('/api/cloud-disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            loadCloudSessions();
+        }
+
+        async function submitNewCloudSession() {
+            const name = document.getElementById('cloud-session-name').value.trim() || 'default';
+            const zeroScale = document.getElementById('cloud-zero-scale').checked;
+            closeNewCloudModal();
+            await fetch('/api/cloud-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, zeroScale })
+            });
+            loadCloudSessions();
+        }
+
+        async function deleteCloudSession(name, btn) {
+            if (!confirm(`Delete cloud session ${name}? Session data in its GCS bucket is kept.`)) return;
+            btn.disabled = true; btn.textContent = 'deleting...';
+            await fetch('/api/cloud-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            loadCloudSessions();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadCloudSessions);
+        } else {
+            loadCloudSessions();
+        }
+        setInterval(loadCloudSessions, 30000);
     </script>
 </head>
 <body>
@@ -724,7 +888,34 @@
         <h1><span>agrun</span> <em>sessions</em></h1>
         <button class="new-btn" onclick="openNewSessionModal()">+ new</button>
     </header>
+    <h2 class="zone-title">local</h2>
     {{CONTENT}}
+
+    <div class="zone-header">
+        <h2 class="zone-title">cloud</h2>
+        <button class="new-btn" onclick="openNewCloudModal()">+ new</button>
+    </div>
+    <div id="cloud-content"><div class="empty"><p>checking cloud sessions...</p></div></div>
+
+    <div id="new-cloud-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>new cloud session</h2>
+            <p class="modal-subtitle">deploys a Cloud Run service (takes a few minutes)</p>
+            <div class="modal-field">
+                <label for="cloud-session-name">session name</label>
+                <input type="text" id="cloud-session-name" placeholder="default">
+                <p class="modal-hint">lowercase letters, digits, dashes</p>
+            </div>
+            <div class="modal-field-checkbox">
+                <input type="checkbox" id="cloud-zero-scale" checked>
+                <label for="cloud-zero-scale">scale to zero when idle (cheaper; resume with agy -c)</label>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-cancel" onclick="closeNewCloudModal()">cancel</button>
+                <button class="modal-submit" onclick="submitNewCloudSession()">deploy</button>
+            </div>
+        </div>
+    </div>
 
     <div id="new-session-modal" class="modal-overlay">
         <div class="modal">
