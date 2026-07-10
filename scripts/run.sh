@@ -84,11 +84,11 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 else
     echo "Creating container: $CONTAINER_NAME"
 
-    # Create session data directory for Claude history persistence
+    # Create session data directory for agy persistence (auth, history, settings)
     SESSION_DATA_DIR="$SESSIONS_DIR/$SESSION_NAME"
     mkdir -p "$SESSION_DATA_DIR"
 
-    VOLUME_FLAGS="-v $SESSION_DATA_DIR:/home/sclaw/.claude/projects"
+    VOLUME_FLAGS="-v $SESSION_DATA_DIR:/home/sclaw/.gemini"
     if [ -n "$VOLUME_MOUNT" ]; then
         VOLUME_FLAGS="$VOLUME_FLAGS -v $VOLUME_MOUNT"
         echo "Mounting volume: $VOLUME_MOUNT"
@@ -96,32 +96,26 @@ else
     docker run -d --ipc=host --name "$CONTAINER_NAME" -p 127.0.0.1:${PORT}:7681 $VOLUME_FLAGS safeclaw sleep infinity > /dev/null
 fi
 
-# === Claude Code token setup ===
+# === Antigravity CLI setup ===
 
 mkdir -p "$SECRETS_DIR"
 
-if [ ! -f "$SECRETS_DIR/CLAUDE_CODE_OAUTH_TOKEN" ]; then
+# Seed baked default config into the session-mounted ~/.gemini (no clobber).
+# First run only copies; later runs skip files that already exist.
+docker exec "$CONTAINER_NAME" bash -c 'cp -an /home/sclaw/.gemini-defaults/. /home/sclaw/.gemini/'
+
+# agy auth is interactive on first run: it prints an authorization URL plus a
+# one-time code in the web terminal. Complete it once per session; credentials
+# persist in the session's ~/.gemini mount across container rebuilds.
+if [ ! -f "$SESSIONS_DIR/$SESSION_NAME/.auth-note-shown" ]; then
     echo ""
-    echo "=== Claude Code setup ==="
+    echo "=== Antigravity CLI setup ==="
     echo ""
-    echo "No Claude Code token found. Let's set one up."
+    echo "On first launch, agy will show a Google sign-in URL and a one-time code"
+    echo "in the web terminal. Open the URL on this machine to complete login."
+    echo "Credentials persist across container rebuilds."
     echo ""
-    echo "Run this command in another terminal:"
-    echo ""
-    echo "  claude setup-token"
-    echo ""
-    echo "It will generate a long-lived OAuth token (valid for 1 year)."
-    echo "Paste the token below."
-    echo ""
-    while true; do
-        read -p "Token: " claude_token
-        if [ -n "$claude_token" ]; then
-            echo "$claude_token" > "$SECRETS_DIR/CLAUDE_CODE_OAUTH_TOKEN"
-            echo "Saved."
-            break
-        fi
-        echo "Token is required. Please run 'claude setup-token' and paste the result."
-    done
+    touch "$SESSIONS_DIR/$SESSION_NAME/.auth-note-shown" 2>/dev/null
 fi
 
 # === GitHub CLI token setup ===
@@ -200,10 +194,10 @@ if [ -n "$QUERY" ]; then
             tmux -f /dev/null new -d -s main
             tmux set -t main status off
             tmux set -t main mouse on
-            tmux send-keys -t main "claude --dangerously-skip-permissions" Enter
+            tmux send-keys -t main "agy --dangerously-skip-permissions" Enter
         fi
     '
-    # Wait for Claude Code to initialize
+    # Wait for agy to initialize
     sleep 3
     # Send the query
     docker exec "$CONTAINER_NAME" tmux send-keys -t main "$QUERY" Enter

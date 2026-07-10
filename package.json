@@ -1,7 +1,7 @@
 {
   "name": "safeclaw",
   "version": "0.1.0",
-  "description": "Sandboxed Docker container running Claude Code",
+  "description": "Sandboxed Docker container running the Antigravity CLI",
   "scripts": {
     "build": "./scripts/build.sh",
     "start": "./scripts/run.sh",

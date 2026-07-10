@@ -66,7 +66,7 @@ function getSessions() {
                     { encoding: 'utf8' }
                 ).trim();
                 const mounts = inspect.split('\n').filter(m =>
-                    m && !m.endsWith(':/home/sclaw/.claude/projects')
+                    m && !m.endsWith(':/home/sclaw/.gemini')
                 );
                 volume = mounts.join(', ') || '-';
             } catch (e) {}

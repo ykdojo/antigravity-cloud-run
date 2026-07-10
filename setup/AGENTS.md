@@ -10,8 +10,6 @@ Never use em dashes (—). Use regular dashes (-) instead.
 
 When cloning repos, clone them into the current directory or a subfolder - never into /tmp. The sandbox resets your working directory to /home/sclaw on every command, so you can't cd outside of it.
 
-# Memory
+# Persistence
 
-Your auto memory persists at `/home/sclaw/.claude/projects/-home-sclaw/memory/` inside the container. This is mounted from the host, so it survives container rebuilds.
-
-Keep memory notes accurate - don't store /tmp paths as project locations since repos should live in /home/sclaw. If you see stale /tmp references in MEMORY.md, update them.
+Your `~/.gemini` directory (auth, conversation history, settings) is mounted from the host, so it survives container rebuilds. Anything outside a mounted volume is lost on rebuild, so push important work to GitHub.

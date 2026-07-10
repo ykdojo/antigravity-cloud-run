@@ -4,7 +4,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG TZ=America/Los_Angeles
 ARG NODE_VERSION=24
 ARG PLAYWRIGHT_MCP_VERSION=0.0.62
-ARG CLAUDE_CODE_VERSION=2.1.201
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -72,48 +71,36 @@ RUN npm install -g @playwright/mcp@${PLAYWRIGHT_MCP_VERSION} && \
 RUN npm install -g node-lief @slack/web-api
 ENV NODE_PATH=/usr/lib/node_modules
 
-# === INSTALL Claude Code (native binary) ===
+# === INSTALL Antigravity CLI (agy) ===
 
 USER sclaw
 WORKDIR /home/sclaw
 
 ENV PATH="/home/sclaw/.local/bin:${PATH}"
-ENV DISABLE_AUTOUPDATER=1
 ENV BASH_ENV=/home/sclaw/.env
 
-# Auth: set these env vars for cloud deployment (no interactive login needed)
-# - CLAUDE_CODE_OAUTH_TOKEN: run `claude setup-token` locally to generate
+# Auth: complete the Google sign-in inside the web terminal on first run.
+# agy detects the headless environment and prints an authorization URL plus a
+# one-time code. Credentials persist in ~/.gemini (session volume mount).
 # - GH_TOKEN: run `gh auth token` locally to print current token
+# Note: the agy installer has no version pinning and the binary self-updates
+# in the background during regular runs.
 
-# Bake Claude config into image
-COPY --chown=sclaw:sclaw setup/CLAUDE.md /home/sclaw/.claude/CLAUDE.md
-COPY --chown=sclaw:sclaw setup/settings.json /home/sclaw/.claude/settings.json
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 
-# Install scripts (context bar status line)
-RUN mkdir -p /home/sclaw/.claude/scripts && \
-    curl -sLo /home/sclaw/.claude/scripts/context-bar.sh \
-      https://raw.githubusercontent.com/ykdojo/claude-code-tips/main/scripts/context-bar.sh && \
-    chmod +x /home/sclaw/.claude/scripts/context-bar.sh
+# === SETUP Antigravity CLI ===
 
-RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_CODE_VERSION}
+# ~/.gemini is volume-mounted per session (auth, history, settings), so bake
+# the default config into a staging dir; run.sh seeds it into ~/.gemini on
+# container start with cp -an (no clobber).
+COPY --chown=sclaw:sclaw setup/AGENTS.md /home/sclaw/.gemini-defaults/AGENTS.md
+COPY --chown=sclaw:sclaw setup/settings.json /home/sclaw/.gemini-defaults/antigravity-cli/settings.json
+COPY --chown=sclaw:sclaw setup/mcp_config.json /home/sclaw/.gemini-defaults/config/mcp_config.json
 
-# === SETUP Claude Code ===
-
-# Install DX plugin and Playwright MCP server
-ARG CLAUDE_CODE_TIPS_VERSION=v0.26.21
-RUN claude plugin marketplace add https://github.com/ykdojo/claude-code-tips.git#${CLAUDE_CODE_TIPS_VERSION} && \
-    claude plugin install dx@ykdojo && \
-    claude mcp add playwright -- playwright-mcp --headless --browser chromium --no-sandbox
-
-# Skip onboarding so CLAUDE_CODE_OAUTH_TOKEN works in interactive mode
-# See: https://github.com/anthropics/claude-code/issues/8938
-RUN jq '. + {hasCompletedOnboarding: true, autoCompactEnabled: false}' /home/sclaw/.claude.json > /tmp/.claude.json.tmp && \
-    mv /tmp/.claude.json.tmp /home/sclaw/.claude.json
-
-# Set default model (must be after plugin install which rewrites settings.json).
-# Without this, the Claude API account defaults to Sonnet, not Opus.
-RUN jq '. + {model: "claude-opus-4-8"}' /home/sclaw/.claude/settings.json > /tmp/settings.json.tmp && \
-    mv /tmp/settings.json.tmp /home/sclaw/.claude/settings.json
+# Context bar status line
+RUN curl -sLo /home/sclaw/.gemini-defaults/antigravity-cli/statusline.sh \
+      https://raw.githubusercontent.com/ykdojo/antigravity-cli-tips/main/scripts/context-bar.sh && \
+    chmod +x /home/sclaw/.gemini-defaults/antigravity-cli/statusline.sh
 
 # Shell aliases and shortcuts
 COPY --chown=sclaw:sclaw setup/.bashrc /tmp/.bashrc
@@ -123,7 +110,7 @@ RUN cat /tmp/.bashrc >> /home/sclaw/.bashrc && rm /tmp/.bashrc
 COPY --chown=sclaw:sclaw setup/ttyd-wrapper.sh /home/sclaw/ttyd-wrapper.sh
 RUN chmod +x /home/sclaw/ttyd-wrapper.sh
 
-# Skills and tools
-COPY --chown=sclaw:sclaw setup/skills /home/sclaw/.claude/skills
+# Tools (skills from setup/skills are not wired up yet - agy's skill/plugin
+# directory layout still needs to be confirmed)
 COPY --chown=sclaw:sclaw setup/tools /home/sclaw/tools
 
