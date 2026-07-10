@@ -26,11 +26,6 @@ Without a host login, agy falls back to interactive Google sign-in: in a headles
 
 Onboarding is fully pre-answered so fresh sessions go straight to the prompt: the baked `settings.json` sets `enableTelemetry: false` (opt out of data collection) and `trustedWorkspaces: ["/home/agrun"]`, and the baked `cache/onboarding.json` (`onboardingComplete: true`) skips the first-run wizard.
 
-Notes:
-- OAuth persistence on headless Linux requires agy >= 1.0.1 ([google-antigravity/antigravity-cli#57](https://github.com/google-antigravity/antigravity-cli/issues/57))
-- Plain Gemini API keys are not supported by the CLI ([#78](https://github.com/google-antigravity/antigravity-cli/issues/78))
-- The agy installer has no version pinning and the binary self-updates in the background
-
 ### Other secrets
 
 All other secrets are stored on the host in `~/.config/agrun/.secrets/`. Each file becomes an environment variable (filename = env var name).
