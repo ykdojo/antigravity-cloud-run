@@ -113,6 +113,11 @@ RUN cat /tmp/.bashrc >> /home/agrun/.bashrc && rm /tmp/.bashrc
 COPY --chown=agrun:agrun setup/ttyd-wrapper.sh /home/agrun/ttyd-wrapper.sh
 RUN chmod +x /home/agrun/ttyd-wrapper.sh
 
+# Cloud Run entrypoint (default command; local run.sh overrides with sleep infinity)
+COPY --chown=agrun:agrun setup/entrypoint-cloud.sh /home/agrun/entrypoint-cloud.sh
+RUN chmod +x /home/agrun/entrypoint-cloud.sh
+CMD ["/home/agrun/entrypoint-cloud.sh"]
+
 # Tools (skills from setup/skills are not wired up yet - agy's skill/plugin
 # directory layout still needs to be confirmed)
 COPY --chown=agrun:agrun setup/tools /home/agrun/tools

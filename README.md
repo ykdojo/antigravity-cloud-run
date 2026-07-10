@@ -123,7 +123,24 @@ Inside each container, these aliases are available:
 | `npm run dashboard:dev` | `nodemon dashboard/server.js` |
 | `npm run manage-env` | `node scripts/manage-env.js` |
 
+## Cloud Run
+
+Deploy a session to Cloud Run (one service per session):
+
+```bash
+./scripts/deploy-cloud.sh -s work          # always-on session
+./scripts/deploy-cloud.sh -s research -z   # scales to zero when idle
+```
+
+The script pushes the image to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (mounted at `~/.gemini` for persistence), and deploys IAM-gated. Connect with:
+
+```bash
+gcloud run services proxy agrun-work --region us-central1 --port 7681
+```
+
+Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle but conversations resume with `agy -c` thanks to the GCS mount.
+
 ## Roadmap
 
-- Cloud Run deployment: IAM-gated access via `gcloud run services proxy` (never `--allow-unauthenticated`), Secret Manager for tokens, GCS volume for session persistence
+- Dashboard: cloud sessions section (list/create/delete Cloud Run services)
 - Skills (in `setup/skills/`, not wired up for agy yet)
