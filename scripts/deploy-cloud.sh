@@ -42,6 +42,10 @@ gcloud artifacts repositories describe "$REPO" --location "$REGION" --project "$
     gcloud artifacts repositories create "$REPO" --repository-format docker \
         --location "$REGION" --project "$PROJECT" --quiet
 
+echo "==> Building image..."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+docker build -t agrun "$(dirname "$SCRIPT_DIR")"
+
 echo "==> Pushing image..."
 gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 docker tag agrun "$IMAGE"
@@ -89,7 +93,13 @@ gcloud run deploy "$SERVICE" \
     --set-secrets "AGY_OAUTH_TOKEN=${SECRET}:latest" \
     --add-volume "name=gemini,type=cloud-storage,bucket=${BUCKET}" \
     --add-volume-mount "volume=gemini,mount-path=/home/agrun/.gemini" \
+    --labels "agrun=session" \
     --quiet
+
+# Record project/region for the dashboard's cloud section
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agrun"
+mkdir -p "$CONFIG_DIR"
+printf '{\n  "project": "%s",\n  "region": "%s"\n}\n' "$PROJECT" "$REGION" > "$CONFIG_DIR/cloud.json"
 
 echo ""
 echo "Deployed. Connect with:"

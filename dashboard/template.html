@@ -393,6 +393,11 @@
             opacity: 0.5;
             pointer-events: none;
         }
+        .zone-title { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5; margin: 28px 0 10px; }
+        .zone-header { display: flex; align-items: center; justify-content: space-between; margin-top: 36px; }
+        .zone-header .zone-title { margin: 0; }
+        .proxy-btn { cursor: pointer; }
+        .cloud-badge { font-size: 10px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.6; margin-left: 6px; }
     </style>
     <script>
         let activeConfirm = null;
@@ -717,6 +722,85 @@
             }
         });
 
+
+        // === Cloud sessions ===
+
+        function openNewCloudModal() { document.getElementById('new-cloud-modal').classList.add('open'); }
+        function closeNewCloudModal() { document.getElementById('new-cloud-modal').classList.remove('open'); }
+
+        async function loadCloudSessions() {
+            const el = document.getElementById('cloud-content');
+            try {
+                const res = await fetch('/api/cloud-sessions');
+                const data = await res.json();
+                if (!data.configured) {
+                    el.innerHTML = '<div class="empty"><p>no cloud config yet - run <code>./scripts/deploy-cloud.sh</code> once to set up</p></div>';
+                    return;
+                }
+                if (data.error) {
+                    el.innerHTML = `<div class="empty"><p>cloud error: ${data.error}</p></div>`;
+                    return;
+                }
+                if (data.sessions.length === 0) {
+                    el.innerHTML = '<div class="empty"><p>no cloud sessions</p></div>';
+                    return;
+                }
+                const rows = data.sessions.map(s => {
+                    const status = s.deploying ? 'deploying...' : (s.ready ? 'ready' : 'not ready');
+                    const badge = s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>';
+                    const connect = s.ready && !s.deploying
+                        ? `<button class="start-btn proxy-btn" onclick="copyProxyCmd(this, '${s.proxyCmd.replace(/'/g, "\\'")}')">copy proxy cmd</button>`
+                        : '-';
+                    const del = s.deploying ? '' : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`;
+                    return `<tr class="${s.ready ? '' : 'inactive-row'}">
+                        <td>${s.displayName}${badge}</td>
+                        <td>${status}</td>
+                        <td class="volume">${connect}</td>
+                        <td>${del}</td>
+                    </tr>`;
+                }).join('');
+                el.innerHTML = `<div class="table-wrapper"><table class="sessions">
+                    <thead><tr><th>Session</th><th>Status</th><th>Connect</th><th></th></tr></thead>
+                    <tbody>${rows}</tbody></table></div>
+                    <p class="modal-hint">connect: run the copied command in a terminal, then open http://localhost:7681</p>`;
+            } catch (e) {
+                el.innerHTML = '<div class="empty"><p>dashboard server unreachable</p></div>';
+            }
+        }
+
+        function copyProxyCmd(btn, cmd) {
+            navigator.clipboard.writeText(cmd).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = 'copied!';
+                setTimeout(() => btn.textContent = orig, 1500);
+            });
+        }
+
+        async function submitNewCloudSession() {
+            const name = document.getElementById('cloud-session-name').value.trim() || 'default';
+            const zeroScale = document.getElementById('cloud-zero-scale').checked;
+            closeNewCloudModal();
+            await fetch('/api/cloud-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, zeroScale })
+            });
+            loadCloudSessions();
+        }
+
+        async function deleteCloudSession(name, btn) {
+            if (!confirm(`Delete cloud session ${name}? Session data in its GCS bucket is kept.`)) return;
+            btn.disabled = true; btn.textContent = 'deleting...';
+            await fetch('/api/cloud-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            loadCloudSessions();
+        }
+
+        loadCloudSessions();
+        setInterval(loadCloudSessions, 30000);
     </script>
 </head>
 <body>
@@ -724,7 +808,34 @@
         <h1><span>agrun</span> <em>sessions</em></h1>
         <button class="new-btn" onclick="openNewSessionModal()">+ new</button>
     </header>
+    <h2 class="zone-title">local</h2>
     {{CONTENT}}
+
+    <div class="zone-header">
+        <h2 class="zone-title">cloud</h2>
+        <button class="new-btn" onclick="openNewCloudModal()">+ new</button>
+    </div>
+    <div id="cloud-content"><div class="empty"><p>checking cloud sessions...</p></div></div>
+
+    <div id="new-cloud-modal" class="modal-overlay">
+        <div class="modal">
+            <h2>new cloud session</h2>
+            <p class="modal-subtitle">deploys a Cloud Run service (takes a few minutes)</p>
+            <div class="modal-field">
+                <label for="cloud-session-name">session name</label>
+                <input type="text" id="cloud-session-name" placeholder="default">
+                <p class="modal-hint">lowercase letters, digits, dashes</p>
+            </div>
+            <div class="modal-field-checkbox">
+                <input type="checkbox" id="cloud-zero-scale" checked>
+                <label for="cloud-zero-scale">scale to zero when idle (cheaper; resume with agy -c)</label>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-cancel" onclick="closeNewCloudModal()">cancel</button>
+                <button class="modal-submit" onclick="submitNewCloudSession()">deploy</button>
+            </div>
+        </div>
+    </div>
 
     <div id="new-session-modal" class="modal-overlay">
         <div class="modal">

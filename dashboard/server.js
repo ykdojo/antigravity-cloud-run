@@ -29,6 +29,95 @@ startDockerEvents();
 
 const PORT = 7680;
 const TEMPLATE_PATH = path.join(__dirname, 'template.html');
+const CLOUD_CONFIG_PATH = path.join(process.env.HOME, '.config', 'agrun', 'cloud.json');
+
+// Cloud sessions (Cloud Run services, one per session)
+
+// Written by scripts/deploy-cloud.sh on successful deploy
+function getCloudConfig() {
+    try {
+        return JSON.parse(fs.readFileSync(CLOUD_CONFIG_PATH, 'utf8'));
+    } catch (e) {
+        return null;
+    }
+}
+
+// Sessions currently being deployed (deploy-cloud.sh runs for minutes)
+const cloudDeploying = new Set();
+
+function getCloudSessions(callback) {
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ configured: false, sessions: [] });
+        return;
+    }
+    const { exec } = require('child_process');
+    const cmd = `gcloud run services list --project ${config.project} --region ${config.region}` +
+        ` --filter 'metadata.labels.agrun=session' --format json`;
+    exec(cmd, { encoding: 'utf8', timeout: 30000 }, (err, stdout) => {
+        if (err) {
+            callback({ configured: true, error: err.message.split('\n')[0], sessions: [] });
+            return;
+        }
+        let services = [];
+        try { services = JSON.parse(stdout); } catch (e) {}
+        const sessions = services.map(svc => {
+            const name = svc.metadata.name;
+            const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
+            const minInstances = svc.spec?.template?.metadata?.annotations?.['autoscaling.knative.dev/minScale'] || '0';
+            return {
+                name,
+                displayName: name.replace('agrun-', ''),
+                ready,
+                alwaysOn: minInstances !== '0',
+                deploying: cloudDeploying.has(name),
+                proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
+            };
+        });
+        // Include sessions still deploying that don't show up in the list yet
+        cloudDeploying.forEach(name => {
+            if (!sessions.some(s => s.name === name)) {
+                sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
+            }
+        });
+        callback({ configured: true, project: config.project, region: config.region, sessions });
+    });
+}
+
+function createCloudSession(options, callback) {
+    const name = (options.name || 'default').trim();
+    const serviceName = `agrun-${name}`;
+    if (!/^[a-z0-9-]+$/.test(name)) {
+        callback({ success: false, error: 'name must be lowercase letters, digits, dashes' });
+        return;
+    }
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
+    const args = ['-s', name];
+    if (options.zeroScale) args.push('-z');
+    const config = getCloudConfig();
+    if (config) args.push('-P', config.project, '-r', config.region);
+    cloudDeploying.add(serviceName);
+    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
+    const out = fs.openSync(logPath, 'w');
+    const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
+    child.on('exit', code => {
+        cloudDeploying.delete(serviceName);
+        fs.closeSync(out);
+    });
+    child.unref();
+    callback({ success: true, deploying: serviceName, log: logPath });
+}
+
+function deleteCloudSession(name, callback) {
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ success: false });
+        return;
+    }
+    const { exec } = require('child_process');
+    exec(`gcloud run services delete ${name} --project ${config.project} --region ${config.region} --quiet`,
+        { timeout: 120000 }, (err) => callback({ success: !err }));
+}
 
 function getSessions() {
     const sessions = [];
@@ -275,6 +364,30 @@ const server = http.createServer((req, res) => {
             const result = createContainer(options);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(result));
+        });
+    } else if (url.pathname === '/api/cloud-sessions') {
+        getCloudSessions(result => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        });
+    } else if (url.pathname === '/api/cloud-create' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            createCloudSession(JSON.parse(body), result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-delete' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            deleteCloudSession(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
         });
     } else if (url.pathname === '/api/events') {
         // Server-Sent Events for real-time updates
