@@ -17,7 +17,7 @@ This lets you run agy with `--dangerously-skip-permissions` safely and fast.
 
 ## One session per container
 
-Each agy session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Auth and conversation history persist automatically: local sessions store them on your host machine via a volume mount, cloud sessions in a per-session Cloud Storage bucket.
+Each agy session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Auth and conversation history persist automatically: local sessions store them on your host machine via a volume mount, cloud sessions in a per-session Cloud Storage bucket (see [Session persistence](#session-persistence)).
 
 ## Quickstart
 
