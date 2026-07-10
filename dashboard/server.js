@@ -203,7 +203,7 @@ function createCloudSession(options, callback) {
     }
     const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
     const args = ['-s', name];
-    if (options.zeroScale) args.push('-z');
+    if (!options.zeroScale) args.push('-a'); // scale-to-zero is the script default
     const config = getCloudConfig();
     if (config) args.push('-P', config.project, '-r', config.region);
     cloudDeploying.add(serviceName);

@@ -1,21 +1,21 @@
 #!/bin/bash
 # Deploy a session to Cloud Run: one service per session, IAM-gated.
-# Usage: deploy-cloud.sh [-s session] [-r region] [-P project] [-z]
-#   -z  scale to zero when idle (default: always-on, min-instances=1)
+# Usage: deploy-cloud.sh [-s session] [-r region] [-P project] [-a]
+#   -a  always-on (min-instances=1, costs money 24/7; default: scale to zero)
 set -euo pipefail
 
 SESSION_NAME="default"
 REGION="us-central1"
 PROJECT="$(gcloud config get-value project 2>/dev/null)"
-MIN_INSTANCES=1
+MIN_INSTANCES=0
 
-while getopts "s:r:P:z" opt; do
+while getopts "s:r:P:a" opt; do
     case $opt in
         s) SESSION_NAME="$OPTARG" ;;
         r) REGION="$OPTARG" ;;
         P) PROJECT="$OPTARG" ;;
-        z) MIN_INSTANCES=0 ;;
-        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-z]"; exit 1 ;;
+        a) MIN_INSTANCES=1 ;;
+        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-a]"; exit 1 ;;
     esac
 done
 

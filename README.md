@@ -36,7 +36,7 @@ Each agy session runs in its own container. Spin up as many as you need - they'r
 ./scripts/run.sh -s research    # agrun-research on next available port
 
 # Or deploy a session to Cloud Run instead (see the Cloud Run section)
-./scripts/deploy-cloud.sh -s research -z
+./scripts/deploy-cloud.sh -s research
 ```
 
 `run.sh` starts a web terminal at http://localhost:7681 and opens it in your browser. If you're logged into agy on the host, `run.sh` copies that login into each new session automatically - no sign-in needed. Otherwise agy shows a Google sign-in URL in the terminal on first launch; complete it once and it persists across container rebuilds.
@@ -107,7 +107,7 @@ You can add any additional secrets by creating files in the `.secrets/` director
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
-| `scripts/deploy-cloud.sh` | Deploy a session to Cloud Run. `-s name` for the session, `-z` for scale-to-zero, `-P`/`-r` for project/region. |
+| `scripts/deploy-cloud.sh` | Deploy a session to Cloud Run (scale-to-zero by default). `-s name` for the session, `-a` for always-on, `-P`/`-r` for project/region. |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
 
@@ -135,8 +135,8 @@ Inside each container, these aliases are available:
 Deploy a session to Cloud Run (one service per session):
 
 ```bash
-./scripts/deploy-cloud.sh -s work          # always-on session
-./scripts/deploy-cloud.sh -s research -z   # scales to zero when idle
+./scripts/deploy-cloud.sh -s research      # scales to zero when idle (default)
+./scripts/deploy-cloud.sh -s work -a       # always-on (a warm instance 24/7 - costs real money)
 ```
 
 The script pushes the image to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (session state is continuously backed up to it), and deploys IAM-gated. Connect from the dashboard's cloud section, or manually with:
