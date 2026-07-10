@@ -24,7 +24,7 @@ RUN apt-get update && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
     apt-get update && \
     apt-get install -y gh && \
-    apt-get install -y --no-install-recommends git openssh-client jq tmux ttyd vim python3-pip unzip && \
+    apt-get install -y --no-install-recommends git openssh-client jq rsync tmux ttyd vim python3-pip unzip && \
     npm install -g yarn && \
     # clean apt cache
     rm -rf /var/lib/apt/lists/* && \

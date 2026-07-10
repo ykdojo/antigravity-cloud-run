@@ -92,7 +92,7 @@ gcloud run deploy "$SERVICE" \
     --set-env-vars "SESSION_NAME=${SESSION_NAME}" \
     --set-secrets "AGY_OAUTH_TOKEN=${SECRET}:latest" \
     --add-volume "name=gemini,type=cloud-storage,bucket=${BUCKET}" \
-    --add-volume-mount "volume=gemini,mount-path=/home/agrun/.gemini" \
+    --add-volume-mount "volume=gemini,mount-path=/gcs-session" \
     --labels "agrun=session" \
     --quiet
 
