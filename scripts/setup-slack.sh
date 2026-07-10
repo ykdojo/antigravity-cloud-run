@@ -1,7 +1,7 @@
 #!/bin/bash
-# Set up Slack integration for SafeClaw
+# Set up Slack integration for Antigravity on Cloud Run
 
-SECRETS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/safeclaw/.secrets"
+SECRETS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agrun/.secrets"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MANIFEST="$SCRIPT_DIR/../setup/slack-manifest.json"
 
@@ -19,7 +19,7 @@ if [[ "$setup_method" =~ ^[Mm]$ ]]; then
     # Manual setup
     echo "1. Go to https://api.slack.com/apps"
     echo "2. Click 'Create New App' > 'From scratch'"
-    echo "3. Name it (e.g., 'SafeClaw') and select your workspace"
+    echo "3. Name it (e.g., 'Antigravity on Cloud Run') and select your workspace"
     echo "4. Go to 'OAuth & Permissions'"
     echo ""
     echo "Which token type?"
@@ -72,6 +72,6 @@ else
     echo ""
     echo "Saved to $SECRETS_DIR/SLACK_TOKEN"
     echo ""
-    echo "Restart SafeClaw to use Slack:"
+    echo "Restart Antigravity on Cloud Run to use Slack:"
     echo "  ./scripts/run.sh"
 fi

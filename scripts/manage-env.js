@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Manage SafeClaw environment variables
+// Manage Antigravity on Cloud Run environment variables
 
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +7,7 @@ const { select, input, password, confirm } = require('@inquirer/prompts');
 
 const SECRETS_DIR = path.join(
   process.env.XDG_CONFIG_HOME || path.join(process.env.HOME, '.config'),
-  'safeclaw',
+  'agrun',
   '.secrets'
 );
 
@@ -81,7 +81,7 @@ async function addKey() {
   fs.writeFileSync(filePath, value, { mode: 0o600 });
 
   console.log(`\nSaved to ${filePath}`);
-  console.log('Restart SafeClaw to use: ./scripts/run.sh\n');
+  console.log('Restart Antigravity on Cloud Run to use: ./scripts/run.sh\n');
 }
 
 async function mainMenu() {

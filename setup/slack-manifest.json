@@ -1,7 +1,7 @@
 {
   "display_information": {
-    "name": "SafeClaw",
-    "description": "Read-only Slack access for SafeClaw containers"
+    "name": "Antigravity on Cloud Run",
+    "description": "Read-only Slack access for Antigravity on Cloud Run containers"
   },
   "oauth_config": {
     "scopes": {

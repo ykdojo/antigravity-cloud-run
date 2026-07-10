@@ -28,8 +28,8 @@ RUN apt-get update && \
     npm install -g yarn && \
     # clean apt cache
     rm -rf /var/lib/apt/lists/* && \
-    # Create the sclaw user
-    adduser sclaw
+    # Create the agrun user
+    adduser agrun
 
 # === INSTALL Playwright MCP + browsers ===
 
@@ -73,11 +73,11 @@ ENV NODE_PATH=/usr/lib/node_modules
 
 # === INSTALL Antigravity CLI (agy) ===
 
-USER sclaw
-WORKDIR /home/sclaw
+USER agrun
+WORKDIR /home/agrun
 
-ENV PATH="/home/sclaw/.local/bin:${PATH}"
-ENV BASH_ENV=/home/sclaw/.env
+ENV PATH="/home/agrun/.local/bin:${PATH}"
+ENV BASH_ENV=/home/agrun/.env
 
 # Auth: complete the Google sign-in inside the web terminal on first run.
 # agy detects the headless environment and prints an authorization URL plus a
@@ -93,24 +93,24 @@ RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 # ~/.gemini is volume-mounted per session (auth, history, settings), so bake
 # the default config into a staging dir; run.sh seeds it into ~/.gemini on
 # container start with cp -an (no clobber).
-COPY --chown=sclaw:sclaw setup/AGENTS.md /home/sclaw/.gemini-defaults/AGENTS.md
-COPY --chown=sclaw:sclaw setup/settings.json /home/sclaw/.gemini-defaults/antigravity-cli/settings.json
-COPY --chown=sclaw:sclaw setup/mcp_config.json /home/sclaw/.gemini-defaults/config/mcp_config.json
+COPY --chown=agrun:agrun setup/AGENTS.md /home/agrun/.gemini-defaults/AGENTS.md
+COPY --chown=agrun:agrun setup/settings.json /home/agrun/.gemini-defaults/antigravity-cli/settings.json
+COPY --chown=agrun:agrun setup/mcp_config.json /home/agrun/.gemini-defaults/config/mcp_config.json
 
 # Context bar status line
-RUN curl -sLo /home/sclaw/.gemini-defaults/antigravity-cli/statusline.sh \
+RUN curl -sLo /home/agrun/.gemini-defaults/antigravity-cli/statusline.sh \
       https://raw.githubusercontent.com/ykdojo/antigravity-cli-tips/main/scripts/context-bar.sh && \
-    chmod +x /home/sclaw/.gemini-defaults/antigravity-cli/statusline.sh
+    chmod +x /home/agrun/.gemini-defaults/antigravity-cli/statusline.sh
 
 # Shell aliases and shortcuts
-COPY --chown=sclaw:sclaw setup/.bashrc /tmp/.bashrc
-RUN cat /tmp/.bashrc >> /home/sclaw/.bashrc && rm /tmp/.bashrc
+COPY --chown=agrun:agrun setup/.bashrc /tmp/.bashrc
+RUN cat /tmp/.bashrc >> /home/agrun/.bashrc && rm /tmp/.bashrc
 
 # ttyd wrapper script
-COPY --chown=sclaw:sclaw setup/ttyd-wrapper.sh /home/sclaw/ttyd-wrapper.sh
-RUN chmod +x /home/sclaw/ttyd-wrapper.sh
+COPY --chown=agrun:agrun setup/ttyd-wrapper.sh /home/agrun/ttyd-wrapper.sh
+RUN chmod +x /home/agrun/ttyd-wrapper.sh
 
 # Tools (skills from setup/skills are not wired up yet - agy's skill/plugin
 # directory layout still needs to be confirmed)
-COPY --chown=sclaw:sclaw setup/tools /home/sclaw/tools
+COPY --chown=agrun:agrun setup/tools /home/agrun/tools
 

@@ -1,5 +1,5 @@
 {
-  "name": "safeclaw",
+  "name": "agrun",
   "version": "0.1.0",
   "description": "Sandboxed Docker container running the Antigravity CLI",
   "scripts": {

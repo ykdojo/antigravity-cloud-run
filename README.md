@@ -1,22 +1,22 @@
-# SafeClaw
+# Antigravity on Cloud Run
 
-The easiest way to run multiple Claude Code sessions, each in its own container, with a dashboard to manage them all. Quick setup with battle-tested [sensible defaults](#sensible-defaults) and [skills](#skills).
+The easiest way to run multiple Antigravity CLI (`agy`) sessions, each in its own container, with a dashboard to manage them all. Local Docker first; Cloud Run deployment is on the roadmap.
 
-https://github.com/user-attachments/assets/e282ed8f-3ec9-4a9e-aa9e-4bc84f9281e9
+Based on [SafeClaw](https://github.com/ykdojo/safeclaw), the same setup for Claude Code.
 
 See [architecture.md](architecture.md) for design details.
 
 ## Why a container?
 
-- **Isolated** - Claude Code runs with bypass permissions, but can't touch your host machine.
+- **Isolated** - agy runs with bypass permissions, but can't touch your host machine.
 - **Lightweight** - Spin up, stop, or delete sessions in seconds. Much faster than a full VM.
 - **Portable** - Works on any machine with Docker. Same environment everywhere.
 
-This lets you run Claude Code with `--dangerously-skip-permissions` safely and fast.
+This lets you run agy with `--dangerously-skip-permissions` safely and fast.
 
 ## One session per container
 
-Each Claude Code session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Conversation history is automatically stored on your host machine via a volume mount.
+Each agy session runs in its own container. Spin up as many as you need - they're isolated from each other and start in seconds. Run different research tasks, projects, or experiments in parallel without interference. Auth and conversation history are automatically stored on your host machine via a volume mount.
 
 ## Quickstart
 
@@ -28,18 +28,16 @@ Each Claude Code session runs in its own container. Spin up as many as you need 
 ./scripts/run.sh
 
 # To mount a local project (host_path:container_path)
-./scripts/run.sh -v ~/myproject:/home/sclaw/myproject
+./scripts/run.sh -v ~/myproject:/home/agrun/myproject
 
 # Run multiple sessions with -s
-./scripts/run.sh -s work        # safeclaw-work on next available port
-./scripts/run.sh -s research    # safeclaw-research on next available port
+./scripts/run.sh -s work        # agrun-work on next available port
+./scripts/run.sh -s research    # agrun-research on next available port
 ```
 
-On first run, `run.sh` will prompt you to set up authentication tokens. It then starts a web terminal at http://localhost:7681 and opens it in your browser.
+`run.sh` starts a web terminal at http://localhost:7681 and opens it in your browser. On the first launch of each session, agy shows a Google sign-in URL and a one-time code in the terminal - complete it once and the credentials persist across container rebuilds.
 
 ## Dashboard
-
-![Dashboard showing multiple Claude Code sessions running in parallel](assets/dashboard.png)
 
 Manage all sessions from a web dashboard:
 
@@ -52,51 +50,48 @@ Opens at http://localhost:7680 with:
 - All sessions listed with start/stop/delete controls
 - Live iframe views of active sessions
 
-## Optional integrations
-
-- `./scripts/setup-slack.sh` - Add Slack read access
-
 ## What's included
 
 - Ubuntu 24.04
 - Node.js 24 (LTS)
-- Claude Code 2.1.201
+- Antigravity CLI (`agy`)
 - GitHub CLI with auto-configured git user
-- Playwright MCP with Chromium
-- Slack read-only skill and tool (optional - requires token)
-- [DX plugin](https://github.com/ykdojo/claude-code-tips#tip-44-install-the-dx-plugin), [custom status line](https://github.com/ykdojo/claude-code-tips#tip-0-customize-your-status-line), [shell aliases](#aliases)
+- Playwright MCP with Chromium (preconfigured for agy)
+- Custom status line ([context bar](https://github.com/ykdojo/antigravity-cli-tips#tip-1-set-up-your-custom-status-line)), [shell aliases](#aliases)
 - ttyd web terminal + tmux
 
 ## Sensible defaults
 
-- Claude Code version pinned (currently 2.1.201)
-- `autoCompactEnabled: false` - prevents automatic context compaction
-- `promptSuggestionEnabled: false` - disables prompt suggestions
 - `--dangerously-skip-permissions` enabled (because it's containerized)
+- Playwright MCP preconfigured in `~/.gemini/config/mcp_config.json`
+- Baked-in `AGENTS.md` with container-aware instructions
 
-## Conversation history and memory
+Note: the agy installer has no version pinning and the binary self-updates in the background.
+
+## Session persistence
 
 Each session's data persists locally at:
 
 ```
-~/.config/safeclaw/sessions/<session-name>/
+~/.config/agrun/sessions/<session-name>/
 ```
 
-This maps to `/home/sclaw/.claude/projects/` inside the container and includes:
-- **Conversations** - JSONL files (one per conversation)
-- **Memory** - Auto memory at `-home-sclaw/memory/MEMORY.md`, loaded into the system prompt each conversation
+This maps to `/home/agrun/.gemini/` inside the container and includes:
+- **Auth** - Google sign-in credentials (log in once per session)
+- **Conversations** - agy conversation history
+- **Settings** - `antigravity-cli/settings.json`, MCP config, statusline
 
-Rebuilding containers or restarting sessions won't affect your history or memory.
+Rebuilding containers or restarting sessions won't affect any of these.
 
 ## Authentication
 
-Tokens are stored in `~/.config/safeclaw/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
+agy itself uses an interactive Google sign-in on first launch (persisted per session as described above).
+
+Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
 
 | File | How to generate |
 |------|-----------------|
-| `CLAUDE_CODE_OAUTH_TOKEN` | `claude setup-token` (valid 1 year) |
 | `GH_TOKEN` | `gh auth token` or create a PAT at github.com/settings/tokens |
-| `SLACK_TOKEN` | Optional - `./scripts/setup-slack.sh` |
 
 You can add any additional secrets by creating files in the `.secrets/` directory.
 
@@ -106,7 +101,6 @@ You can add any additional secrets by creating files in the `.secrets/` director
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
-| `scripts/setup-slack.sh` | Set up Slack integration (optional) |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
 
@@ -116,8 +110,8 @@ Inside each container, these aliases are available:
 
 | Alias | Command |
 |-------|---------|
-| `c` | `claude` |
-| `cs` | `claude --dangerously-skip-permissions` |
+| `a` | `agy` |
+| `ad` | `agy --dangerously-skip-permissions` |
 
 ## npm scripts
 
@@ -127,19 +121,9 @@ Inside each container, these aliases are available:
 | `npm start` | `./scripts/run.sh` |
 | `npm run dashboard` | `node dashboard/server.js` |
 | `npm run dashboard:dev` | `nodemon dashboard/server.js` |
-| `npm run setup-slack` | `./scripts/setup-slack.sh` |
 | `npm run manage-env` | `node scripts/manage-env.js` |
 
-## Skills
+## Roadmap
 
-Defined in `setup/skills/`.
-
-| Skill | Description | Requires |
-|-------|-------------|----------|
-| slack | Read Slack messages, channels, DMs, and search (read-only) | `SLACK_TOKEN` |
-| yt-dlp | Download YouTube videos, audio, and subtitles/transcripts | - |
-| gdoc | Read publicly shared Google Docs | - |
-
-## Featured in
-
-- [claude-code-tips](https://github.com/ykdojo/claude-code-tips)
+- Cloud Run deployment: IAM-gated access via `gcloud run services proxy` (never `--allow-unauthenticated`), Secret Manager for tokens, GCS volume for session persistence
+- Skills (in `setup/skills/`, not wired up for agy yet)

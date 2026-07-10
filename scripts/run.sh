@@ -2,9 +2,9 @@
 # Start/reuse container, inject auth tokens, start ttyd web terminal
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SAFECLAW_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/safeclaw"
-SECRETS_DIR="$SAFECLAW_DIR/.secrets"
-SESSIONS_DIR="$SAFECLAW_DIR/sessions"
+AGRUN_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agrun"
+SECRETS_DIR="$AGRUN_DIR/.secrets"
+SESSIONS_DIR="$AGRUN_DIR/sessions"
 SESSION_NAME=""
 VOLUME_MOUNT=""
 NO_OPEN=false
@@ -34,7 +34,7 @@ done
 
 # Set container name based on session (default to "default")
 SESSION_NAME="${SESSION_NAME:-default}"
-CONTAINER_NAME="safeclaw-${SESSION_NAME}"
+CONTAINER_NAME="agrun-${SESSION_NAME}"
 
 # Find available port (starting from 7681)
 find_available_port() {
@@ -58,8 +58,8 @@ get_container_port() {
 PORT=$(get_container_port)
 
 # Check if image exists
-if ! docker images -q safeclaw | grep -q .; then
-    echo "Error: Image 'safeclaw' not found. Run ./scripts/build.sh first."
+if ! docker images -q agrun | grep -q .; then
+    echo "Error: Image 'agrun' not found. Run ./scripts/build.sh first."
     exit 1
 fi
 
@@ -88,12 +88,12 @@ else
     SESSION_DATA_DIR="$SESSIONS_DIR/$SESSION_NAME"
     mkdir -p "$SESSION_DATA_DIR"
 
-    VOLUME_FLAGS="-v $SESSION_DATA_DIR:/home/sclaw/.gemini"
+    VOLUME_FLAGS="-v $SESSION_DATA_DIR:/home/agrun/.gemini"
     if [ -n "$VOLUME_MOUNT" ]; then
         VOLUME_FLAGS="$VOLUME_FLAGS -v $VOLUME_MOUNT"
         echo "Mounting volume: $VOLUME_MOUNT"
     fi
-    docker run -d --ipc=host --name "$CONTAINER_NAME" -p 127.0.0.1:${PORT}:7681 $VOLUME_FLAGS safeclaw sleep infinity > /dev/null
+    docker run -d --ipc=host --name "$CONTAINER_NAME" -p 127.0.0.1:${PORT}:7681 $VOLUME_FLAGS agrun sleep infinity > /dev/null
 fi
 
 # === Antigravity CLI setup ===
@@ -102,7 +102,7 @@ mkdir -p "$SECRETS_DIR"
 
 # Seed baked default config into the session-mounted ~/.gemini (no clobber).
 # First run only copies; later runs skip files that already exist.
-docker exec "$CONTAINER_NAME" bash -c 'cp -an /home/sclaw/.gemini-defaults/. /home/sclaw/.gemini/'
+docker exec "$CONTAINER_NAME" bash -c 'cp -an /home/agrun/.gemini-defaults/. /home/agrun/.gemini/'
 
 # agy auth is interactive on first run: it prints an authorization URL plus a
 # one-time code in the web terminal. Complete it once per session; credentials
@@ -126,7 +126,7 @@ if [ ! -f "$SECRETS_DIR/GH_TOKEN" ]; then
     echo ""
     echo "No GitHub token found. Let's set one up."
     echo ""
-    echo "We recommend creating a separate GitHub account for SafeClaw"
+    echo "We recommend creating a separate GitHub account for Antigravity on Cloud Run"
     echo "so you can scope its permissions independently."
     echo ""
     echo "Once logged in, run this in another terminal:"
@@ -148,12 +148,12 @@ if [ ! -f "$SECRETS_DIR/GH_TOKEN" ]; then
     fi
 fi
 
-# Persist secrets inside container as /home/sclaw/.env
+# Persist secrets inside container as /home/agrun/.env
 # This is the single source of truth for env vars - sourced by .bashrc via BASH_ENV
-docker exec "$CONTAINER_NAME" sh -c 'rm -f /home/sclaw/.env && touch /home/sclaw/.env && chmod 600 /home/sclaw/.env'
+docker exec "$CONTAINER_NAME" sh -c 'rm -f /home/agrun/.env && touch /home/agrun/.env && chmod 600 /home/agrun/.env'
 for secret_file in "$SECRETS_DIR"/*; do
     if [ -f "$secret_file" ]; then
-        docker exec "$CONTAINER_NAME" sh -c "echo 'export $(basename "$secret_file")=$(cat "$secret_file")' >> /home/sclaw/.env"
+        docker exec "$CONTAINER_NAME" sh -c "echo 'export $(basename "$secret_file")=$(cat "$secret_file")' >> /home/agrun/.env"
     fi
 done
 
@@ -176,14 +176,14 @@ if [ -f "$SECRETS_DIR/GH_TOKEN" ]; then
 fi
 
 # Set title based on session name
-TITLE="SafeClaw - ${SESSION_NAME}"
+TITLE="Antigravity on Cloud Run - ${SESSION_NAME}"
 
 # Start ttyd with web terminal
 docker exec -d "$CONTAINER_NAME" \
-    ttyd -W -t titleFixed="$TITLE" -p 7681 /home/sclaw/ttyd-wrapper.sh
+    ttyd -W -t titleFixed="$TITLE" -p 7681 /home/agrun/ttyd-wrapper.sh
 
 echo ""
-echo "SafeClaw is running at: http://localhost:${PORT}"
+echo "Antigravity on Cloud Run is running at: http://localhost:${PORT}"
 
 # Query mode - send query to the interactive session
 if [ -n "$QUERY" ]; then

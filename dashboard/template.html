@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SafeClaw</title>
+    <title>Antigravity on Cloud Run</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -539,7 +539,7 @@
                     row.querySelector('td:nth-child(2)').innerHTML = `<a href="${url}" target="_blank">${displayUrl}</a>`;
                     row.querySelector('td:nth-child(4)').innerHTML = `<button class="stop-btn" onclick="stopSession('${name}', this)">stop</button>`;
                     // Add iframe (only if not already present)
-                    const displayName = name.replace('safeclaw-', '');
+                    const displayName = name.replace('agrun-', '');
                     let frames = document.querySelector('.frames');
                     // Create frames container if it doesn't exist
                     if (!frames) {
@@ -603,7 +603,7 @@
 
         function getExistingSessionNames() {
             const rows = document.querySelectorAll('.sessions tbody tr[data-name]');
-            return Array.from(rows).map(row => row.dataset.name.replace('safeclaw-', ''));
+            return Array.from(rows).map(row => row.dataset.name.replace('agrun-', ''));
         }
 
         function sessionNameExists(name) {
@@ -679,7 +679,7 @@
         }
 
         function showSessionInfo(name) {
-            const displayName = name.replace('safeclaw-', '');
+            const displayName = name.replace('agrun-', '');
             document.getElementById('session-info-title').textContent = displayName;
             document.getElementById('session-exec-cmd').value = `docker exec -it ${name} tmux attach -t main`;
             document.getElementById('session-info-modal').classList.add('open');
@@ -721,7 +721,7 @@
 </head>
 <body>
     <header>
-        <h1><span>safeclaw</span> <em>sessions</em></h1>
+        <h1><span>agrun</span> <em>sessions</em></h1>
         <button class="new-btn" onclick="openNewSessionModal()">+ new</button>
     </header>
     {{CONTENT}}
@@ -737,7 +737,7 @@
             </div>
             <div class="modal-field">
                 <label for="session-volume">volume mount</label>
-                <input type="text" id="session-volume" placeholder="~/myproject:/home/sclaw/myproject">
+                <input type="text" id="session-volume" placeholder="~/myproject:/home/agrun/myproject">
             </div>
             <div class="modal-field">
                 <label for="session-query">initial query</label>

@@ -6,10 +6,10 @@ const { execSync, spawn } = require('child_process');
 // SSE clients
 const sseClients = new Set();
 
-// Watch Docker events for safeclaw containers
+// Watch Docker events for agrun containers
 let dockerEvents;
 function startDockerEvents() {
-    dockerEvents = spawn('docker', ['events', '--filter', 'name=safeclaw', '--format', '{{.Action}}']);
+    dockerEvents = spawn('docker', ['events', '--filter', 'name=agrun', '--format', '{{.Action}}']);
     dockerEvents.stdout.on('data', (data) => {
         const action = data.toString().trim();
         if (['start', 'stop', 'die', 'destroy', 'create'].includes(action)) {
@@ -33,10 +33,10 @@ const TEMPLATE_PATH = path.join(__dirname, 'template.html');
 function getSessions() {
     const sessions = [];
 
-    // Get all safeclaw containers (running and stopped)
+    // Get all agrun containers (running and stopped)
     try {
         const output = execSync(
-            `docker ps -a --format '{{.Names}}\\t{{.Status}}' --filter 'name=safeclaw'`,
+            `docker ps -a --format '{{.Names}}\\t{{.Status}}' --filter 'name=agrun'`,
             { encoding: 'utf8' }
         );
 
@@ -66,7 +66,7 @@ function getSessions() {
                     { encoding: 'utf8' }
                 ).trim();
                 const mounts = inspect.split('\n').filter(m =>
-                    m && !m.endsWith(':/home/sclaw/.gemini')
+                    m && !m.endsWith(':/home/agrun/.gemini')
                 );
                 volume = mounts.join(', ') || '-';
             } catch (e) {}
@@ -148,7 +148,7 @@ function startContainer(name) {
     try {
         execSync(`docker start ${name}`, { encoding: 'utf8' });
         // Start ttyd inside the container
-        const secretsDir = process.env.HOME + '/.config/safeclaw/.secrets';
+        const secretsDir = process.env.HOME + '/.config/agrun/.secrets';
         let envFlags = '';
         try {
             const files = fs.readdirSync(secretsDir);
@@ -158,9 +158,9 @@ function startContainer(name) {
             });
         } catch (e) {}
 
-        const sessionName = name.replace('safeclaw-', '');
-        const title = `SafeClaw - ${sessionName}`;
-        execSync(`docker exec ${envFlags} -d ${name} ttyd -W -t titleFixed="${title}" -p 7681 /home/sclaw/ttyd-wrapper.sh`, { encoding: 'utf8' });
+        const sessionName = name.replace('agrun-', '');
+        const title = `Antigravity on Cloud Run - ${sessionName}`;
+        execSync(`docker exec ${envFlags} -d ${name} ttyd -W -t titleFixed="${title}" -p 7681 /home/agrun/ttyd-wrapper.sh`, { encoding: 'utf8' });
 
         // Get the port
         const portInfo = execSync(`docker ps --filter "name=^${name}$" --format "{{.Ports}}"`, { encoding: 'utf8' }).trim();
@@ -181,7 +181,7 @@ function renderContent(sessions) {
                 <tr><td><code>./scripts/run.sh</code></td><td>default session</td></tr>
                 <tr><td><code>./scripts/run.sh -s name</code></td><td>named session</td></tr>
                 <tr><td><code>./scripts/run.sh -n</code></td><td>skip opening browser</td></tr>
-                <tr><td><code>./scripts/run.sh -v ~/myproject:/home/sclaw/myproject</code></td><td>mount volume</td></tr>
+                <tr><td><code>./scripts/run.sh -v ~/myproject:/home/agrun/myproject</code></td><td>mount volume</td></tr>
                 <tr><td><code>./scripts/run.sh -q "question"</code></td><td>start with query</td></tr>
             </table>
             <p class="tip">tip: ${['in a session, press q or scroll to the bottom to exit scroll mode and resume typing', 'on this dashboard, press tab and enter to quickly create a new session', 'run node scripts/manage-env.js to manage environment variables'][Math.floor(Math.random() * 3)]}</p>
@@ -189,7 +189,7 @@ function renderContent(sessions) {
     }
 
     const sessionRows = sessions.map(s => {
-        const displayName = s.name.replace('safeclaw-', '');
+        const displayName = s.name.replace('agrun-', '');
         const displayUrl = s.url ? s.url.replace('http://', '') : '';
         const urlCell = s.active
             ? `<a href="${s.url}" target="_blank">${displayUrl}</a>`
@@ -212,7 +212,7 @@ function renderContent(sessions) {
     const iframes = activeSessions.map(s => `
         <div class="frame" id="frame-${s.name}">
             <div class="frame-bar">
-                <span>${s.name.replace('safeclaw-', '')}</span>
+                <span>${s.name.replace('agrun-', '')}</span>
                 <div class="frame-actions">
                     <a href="#" class="frame-stop" onclick="stopSessionLink('${s.name}', this); return false;">stop</a>
                     <a href="#" onclick="document.querySelector('#frame-${s.name} iframe').src='${s.url}'; return false;">refresh</a>

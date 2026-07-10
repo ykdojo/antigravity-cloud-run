@@ -1,5 +1,5 @@
 # Load env vars from .env file (written by run.sh)
-[ -f /home/sclaw/.env ] && . /home/sclaw/.env
+[ -f /home/agrun/.env ] && . /home/agrun/.env
 
 # Antigravity CLI aliases
 alias a='agy'
