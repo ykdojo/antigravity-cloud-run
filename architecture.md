@@ -24,7 +24,7 @@ agy has no env var for token-based auth (API-key auth is an open feature request
 
 Without a host login, agy falls back to interactive Google sign-in: in a headless container it prints an authorization URL, you complete it in a browser on the host and paste the code back. Either way, credentials live under `~/.gemini`, which is volume-mounted to `~/.config/agrun/sessions/<session-name>/` on the host, so they survive container rebuilds.
 
-Onboarding is fully pre-answered so fresh sessions go straight to the prompt: the baked `settings.json` sets `enableTelemetry: false` (opt out of data collection) and `trustedWorkspaces: ["/home/agrun"]`, and the baked `cache/onboarding.json` (`onboardingComplete: true`) skips the first-run wizard (theme picker, ToS screen).
+Onboarding is fully pre-answered so fresh sessions go straight to the prompt: the baked `settings.json` sets `enableTelemetry: false` (opt out of data collection) and `trustedWorkspaces: ["/home/agrun"]`, and the baked `cache/onboarding.json` (`onboardingComplete: true`) skips the first-run wizard.
 
 Notes:
 - OAuth persistence on headless Linux requires agy >= 1.0.1 ([google-antigravity/antigravity-cli#57](https://github.com/google-antigravity/antigravity-cli/issues/57))
