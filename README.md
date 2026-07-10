@@ -34,6 +34,9 @@ Each agy session runs in its own container. Spin up as many as you need - they'r
 # Run multiple sessions with -s
 ./scripts/run.sh -s work        # agrun-work on next available port
 ./scripts/run.sh -s research    # agrun-research on next available port
+
+# Or deploy a session to Cloud Run instead (see the Cloud Run section)
+./scripts/deploy-cloud.sh -s research -z
 ```
 
 `run.sh` starts a web terminal at http://localhost:7681 and opens it in your browser. If you're logged into agy on the host, `run.sh` copies that login into each new session automatically - no sign-in needed. Otherwise agy shows a Google sign-in URL in the terminal on first launch; complete it once and it persists across container rebuilds.
