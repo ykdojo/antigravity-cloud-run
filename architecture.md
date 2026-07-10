@@ -20,7 +20,7 @@ The user interacts with agy through a browser, not a local terminal. This gives 
 
 ### Antigravity CLI
 
-agy has no env var for token-based auth (API-key auth is an open feature request: [google-antigravity/antigravity-cli#78](https://github.com/google-antigravity/antigravity-cli/issues/78)). But its OAuth credential is a plain JSON file: `~/.gemini/antigravity-cli/antigravity-oauth-token`. So `run.sh` copies the host's token file into each new session's mount, giving the same log-in-once experience. The copy only happens when the session has no token yet - agy refreshes its own copy afterwards, and overwriting it with a stale host token could break auth.
+agy has no env var for token-based auth (API-key auth is an open feature request: [google-antigravity/antigravity-cli#78](https://github.com/google-antigravity/antigravity-cli/issues/78)). But its OAuth credential is a plain JSON file: `~/.gemini/antigravity-cli/antigravity-oauth-token`. So `run.sh` copies the host's token file into each new session's mount: log in on the host once, and every session starts already authenticated. The copy only happens when the session has no token yet - agy refreshes its own copy afterwards, and overwriting it with a stale host token could break auth.
 
 Without a host login, agy falls back to interactive Google sign-in: in a headless container it prints an authorization URL, you complete it in a browser on the host and paste the code back. Either way, credentials live under `~/.gemini`, which is volume-mounted to `~/.config/agrun/sessions/<session-name>/` on the host, so they survive container rebuilds.
 
@@ -51,15 +51,22 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 ## Config seeding
 
-`~/.gemini` is a volume mount, so baked-in defaults can't live there directly in the image. Instead the Dockerfile stages them in `/home/agrun/.gemini-defaults` (AGENTS.md, `antigravity-cli/settings.json`, statusline script, Playwright MCP config), and `run.sh` seeds them into `~/.gemini` on every start with `cp -an` - existing files are never overwritten, so user changes and credentials win.
+`~/.gemini` is a volume mount, so baked-in defaults can't live there directly in the image. Instead the Dockerfile stages them in `/home/agrun/.gemini-defaults` (AGENTS.md, `antigravity-cli/settings.json`, statusline script, Playwright MCP config), and `run.sh` seeds them into `~/.gemini` on every start with a no-clobber copy - existing files are never overwritten, so user changes and credentials win.
+
+## Dashboard
+
+`dashboard/server.js` is a small Node server (localhost:7680) with no state of its own: buttons call HTTP endpoints, and the server shells out to the same scripts and CLIs you would run by hand.
+
+- **Local sessions:** listed via `docker ps`, created via `run.sh`, auto-refreshed by streaming `docker events` to the page (SSE). Running sessions render as live terminal iframes.
+- **Cloud sessions:** listed via `gcloud run services list` (filtered by the `agrun=session` label; project/region come from `~/.config/agrun/cloud.json`, written by the deploy script). Create runs `deploy-cloud.sh`; delete removes the service but keeps its bucket. Connect makes the server spawn `gcloud run services proxy` on a local port and iframe it - IAM is still enforced on every request; only the raw `run.app` URL can't be embedded. A cold-start overlay covers the iframe until the server (watching the ttyd WebSocket) confirms agy has painted.
 
 ## Cloud Run
 
 One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`. Instances of a single service can't act as sessions: Cloud Run treats them as interchangeable replicas, so sessions map to services.
 
 - **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker. Never expose ttyd publicly - it's a remote shell.
-- **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it to `~/.gemini/antigravity-cli/antigravity-oauth-token` if the session volume doesn't have one yet.
-- **Persistence:** a GCS bucket per session is FUSE-mounted at `~/.gemini` (requires gen2 execution environment). Caveat to watch: agy keeps SQLite files there, and gcsfuse has no POSIX locking - single-instance access (max-instances=1) should be safe, but this is empirically validated, not guaranteed.
-- **Entrypoint:** the image's default command is `entrypoint-cloud.sh` (seed defaults, restore token, exec ttyd on `$PORT`). Local containers are unaffected: `run.sh` overrides the command with `sleep infinity` and manages ttyd itself.
-- **Scaling:** min/max instances = 1 for always-on, or `-z` for scale-to-zero (cheaper; the live terminal dies on idle but conversations resume with `agy -c` from the GCS mount). ttyd WebSocket connections drop at Cloud Run's 60-minute request cap; tmux absorbs reconnects.
-- **Statusline note:** files on gcsfuse carry no executable bit, so settings invoke the statusline as `bash .../statusline.sh`.
+- **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
+- **Persistence:** a GCS bucket per session, mounted at `/gcs-session` (gen2 execution environment). agy runs against the container's local disk - its SQLite state can't live on gcsfuse directly (no POSIX locking; stale-file-handle errors) - and the entrypoint restores bucket -> local on boot, then syncs local -> bucket every 60 seconds and on SIGTERM. A restart loses at most about a minute of state.
+- **Entrypoint:** the image's default command is `entrypoint-cloud.sh`: restore session state from the bucket, seed baked defaults, write the token if missing, start ttyd on `$PORT`, run the background sync loop. Local containers are unaffected: `run.sh` overrides the command with `sleep infinity` and manages ttyd itself.
+- **Scaling:** min/max instances = 1 for always-on, or `-z` for scale-to-zero (cheaper; the live terminal dies on idle but conversations resume with `agy -c` from the synced bucket). ttyd WebSocket connections drop at Cloud Run's 60-minute request cap; tmux absorbs reconnects.
+- **Statusline note:** files restored from the bucket lose their executable bit, so settings invoke the statusline as `bash .../statusline.sh`.

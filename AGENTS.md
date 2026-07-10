@@ -72,7 +72,7 @@ This includes:
 - **Conversations:** agy conversation history
 - **Settings:** `antigravity-cli/settings.json`, MCP config, statusline
 
-Rebuilding containers or restarting sessions won't affect any of these. Baked defaults live in `/home/agrun/.gemini-defaults` in the image and are seeded into the mount by `run.sh` with `cp -an` (no clobber).
+Rebuilding containers or restarting sessions won't affect any of these. Baked defaults live in `/home/agrun/.gemini-defaults` in the image and are seeded into the mount by `run.sh` with a no-clobber copy.
 
 ## Starting and stopping containers
 

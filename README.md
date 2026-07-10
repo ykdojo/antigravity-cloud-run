@@ -45,10 +45,10 @@ Manage all sessions from a web dashboard:
 node dashboard/server.js
 ```
 
-Opens at http://localhost:7680 with:
-- Create new sessions with volume mounts and initial queries
-- All sessions listed with start/stop/delete controls
-- Live iframe views of active sessions
+Opens at http://localhost:7680 with two sections, local and cloud:
+- Create new sessions (local: volume mounts and initial queries; cloud: deploys to Cloud Run)
+- All sessions listed with start/stop/delete (local) and connect/disconnect/delete (cloud) controls
+- Live embedded terminals for active sessions, cloud included (via an IAM-authenticated proxy)
 
 ## What's included
 
@@ -77,7 +77,7 @@ Each session's data persists locally at:
 ```
 
 This maps to `/home/agrun/.gemini/` inside the container and includes:
-- **Auth** - Google sign-in credentials (log in once per session)
+- **Auth** - Google sign-in credentials (copied from the host, or from a one-time sign-in)
 - **Conversations** - agy conversation history
 - **Settings** - `antigravity-cli/settings.json`, MCP config, statusline
 
@@ -101,6 +101,7 @@ You can add any additional secrets by creating files in the `.secrets/` director
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
+| `scripts/deploy-cloud.sh` | Deploy a session to Cloud Run. `-s name` for the session, `-z` for scale-to-zero, `-P`/`-r` for project/region. |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
 
@@ -132,13 +133,13 @@ Deploy a session to Cloud Run (one service per session):
 ./scripts/deploy-cloud.sh -s research -z   # scales to zero when idle
 ```
 
-The script pushes the image to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (mounted at `~/.gemini` for persistence), and deploys IAM-gated. Connect with:
+The script pushes the image to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (session state is continuously backed up to it), and deploys IAM-gated. Connect from the dashboard's cloud section, or manually with:
 
 ```bash
 gcloud run services proxy agrun-work --region us-central1 --port 7681
 ```
 
-Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle but conversations resume with `agy -c` thanks to the GCS mount.
+Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle, but conversations resume with `agy -c` from the session's GCS backup.
 
 ## Roadmap
 
