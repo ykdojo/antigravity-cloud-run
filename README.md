@@ -22,6 +22,10 @@ Each agy session runs in its own container. Spin up as many as you need - they'r
 ## Quickstart
 
 ```bash
+# Clone the repo
+git clone https://github.com/ykdojo/antigravity-cloud-run.git
+cd antigravity-cloud-run
+
 # Build image (once, or after changes)
 ./scripts/build.sh
 
