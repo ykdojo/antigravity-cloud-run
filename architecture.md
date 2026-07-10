@@ -20,7 +20,11 @@ The user interacts with agy through a browser, not a local terminal. This gives 
 
 ### Antigravity CLI
 
-agy uses Google sign-in. In a headless container it detects the remote session and prints an authorization URL plus a one-time code; you complete the login in a browser on the host. This is a one-time step per session: credentials are stored under `~/.gemini`, which is volume-mounted to `~/.config/agrun/sessions/<session-name>/` on the host, so they survive container rebuilds.
+agy has no token env var like Claude Code's `CLAUDE_CODE_OAUTH_TOKEN` (verified against the binary; API-key auth is an open feature request). But its OAuth credential is a plain JSON file: `~/.gemini/antigravity-cli/antigravity-oauth-token`. So `run.sh` copies the host's token file into each new session's mount, giving the same log-in-once experience. The copy only happens when the session has no token yet - agy refreshes its own copy afterwards, and overwriting it with a stale host token could break auth.
+
+Without a host login, agy falls back to interactive Google sign-in: in a headless container it prints an authorization URL, you complete it in a browser on the host and paste the code back. Either way, credentials live under `~/.gemini`, which is volume-mounted to `~/.config/agrun/sessions/<session-name>/` on the host, so they survive container rebuilds.
+
+Onboarding prompts (telemetry choice, workspace trust) are pre-answered by the baked `settings.json`: `enableTelemetry: false` and `trustedWorkspaces: ["/home/agrun"]`.
 
 Notes:
 - OAuth persistence on headless Linux requires agy >= 1.0.1 ([google-antigravity/antigravity-cli#57](https://github.com/google-antigravity/antigravity-cli/issues/57))

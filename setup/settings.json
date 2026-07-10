@@ -1,6 +1,10 @@
 {
+  "enableTelemetry": false,
   "statusLine": {
     "type": "command",
     "command": "~/.gemini/antigravity-cli/statusline.sh"
-  }
+  },
+  "trustedWorkspaces": [
+    "/home/agrun"
+  ]
 }

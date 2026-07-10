@@ -35,7 +35,7 @@ Each agy session runs in its own container. Spin up as many as you need - they'r
 ./scripts/run.sh -s research    # agrun-research on next available port
 ```
 
-`run.sh` starts a web terminal at http://localhost:7681 and opens it in your browser. On the first launch of each session, agy shows a Google sign-in URL and a one-time code in the terminal - complete it once and the credentials persist across container rebuilds.
+`run.sh` starts a web terminal at http://localhost:7681 and opens it in your browser. If you're logged into agy on the host, `run.sh` copies that login into each new session automatically - no sign-in needed. Otherwise agy shows a Google sign-in URL in the terminal on first launch; complete it once and it persists across container rebuilds.
 
 ## Dashboard
 
@@ -85,7 +85,7 @@ Rebuilding containers or restarting sessions won't affect any of these.
 
 ## Authentication
 
-agy itself uses an interactive Google sign-in on first launch (persisted per session as described above).
+agy reuses your host login: `run.sh` copies `~/.gemini/antigravity-cli/antigravity-oauth-token` from the host into each new session (never overwriting a session's own token, since agy refreshes it). No host login? agy falls back to an interactive Google sign-in in the web terminal, done once per session.
 
 Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
 

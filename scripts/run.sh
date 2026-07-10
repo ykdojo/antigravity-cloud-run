@@ -102,20 +102,26 @@ mkdir -p "$SECRETS_DIR"
 
 # Seed baked default config into the session-mounted ~/.gemini (no clobber).
 # First run only copies; later runs skip files that already exist.
-docker exec "$CONTAINER_NAME" bash -c 'cp -an /home/agrun/.gemini-defaults/. /home/agrun/.gemini/'
+docker exec "$CONTAINER_NAME" bash -c 'cp -a --update=none /home/agrun/.gemini-defaults/. /home/agrun/.gemini/'
 
-# agy auth is interactive on first run: it prints an authorization URL plus a
-# one-time code in the web terminal. Complete it once per session; credentials
-# persist in the session's ~/.gemini mount across container rebuilds.
-if [ ! -f "$SESSIONS_DIR/$SESSION_NAME/.auth-note-shown" ]; then
+# Reuse the host's agy login: copy the OAuth token file into the session if
+# the session doesn't have one yet (agy refreshes its own copy afterwards, so
+# never overwrite an existing session token with the host one).
+HOST_AGY_TOKEN="$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+SESSION_AGY_TOKEN="$SESSIONS_DIR/$SESSION_NAME/antigravity-cli/antigravity-oauth-token"
+if [ -f "$HOST_AGY_TOKEN" ] && [ ! -f "$SESSION_AGY_TOKEN" ]; then
+    mkdir -p "$(dirname "$SESSION_AGY_TOKEN")"
+    cp "$HOST_AGY_TOKEN" "$SESSION_AGY_TOKEN"
+    chmod 600 "$SESSION_AGY_TOKEN"
+    echo "Copied agy login from the host into this session."
+elif [ ! -f "$SESSION_AGY_TOKEN" ]; then
     echo ""
     echo "=== Antigravity CLI setup ==="
     echo ""
-    echo "On first launch, agy will show a Google sign-in URL and a one-time code"
-    echo "in the web terminal. Open the URL on this machine to complete login."
-    echo "Credentials persist across container rebuilds."
+    echo "No agy login found on the host (~/.gemini/antigravity-cli/antigravity-oauth-token)."
+    echo "On first launch, agy will show a Google sign-in URL in the web terminal."
+    echo "Complete it once; credentials persist across container rebuilds."
     echo ""
-    touch "$SESSIONS_DIR/$SESSION_NAME/.auth-note-shown" 2>/dev/null
 fi
 
 # === GitHub CLI token setup ===
