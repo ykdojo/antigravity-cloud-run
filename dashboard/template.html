@@ -730,6 +730,7 @@
 
         async function loadCloudSessions() {
             const el = document.getElementById('cloud-content');
+            if (!el) return;
             try {
                 const res = await fetch('/api/cloud-sessions');
                 const data = await res.json();
@@ -799,7 +800,11 @@
             loadCloudSessions();
         }
 
-        loadCloudSessions();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadCloudSessions);
+        } else {
+            loadCloudSessions();
+        }
         setInterval(loadCloudSessions, 30000);
     </script>
 </head>
