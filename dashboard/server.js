@@ -51,6 +51,57 @@ const cloudDeploying = new Set();
 const cloudProxies = new Map();
 let nextProxyPort = 7781;
 
+// Real terminal readiness: service name -> true once agy has painted. The
+// iframe is cross-origin so the page can't inspect it; instead the server opens
+// the ttyd WebSocket itself and watches for agy's banner. This connecting also
+// warms the instance (first WS connect triggers agy launch in the container).
+const cloudReady = new Map();
+
+function probeTerminalReady(name, port) {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; cloudReady.set(name, true); } };
+    const attempt = async (triesLeft) => {
+        if (!cloudProxies.has(name)) return; // disconnected
+        let token = '';
+        try {
+            const r = await fetch(`http://127.0.0.1:${port}/token`);
+            token = (await r.json()).token || '';
+        } catch (e) {
+            if (triesLeft > 0) return setTimeout(() => attempt(triesLeft - 1), 1500);
+        }
+        let ws;
+        try {
+            ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, 'tty');
+        } catch (e) {
+            if (triesLeft > 0) return setTimeout(() => attempt(triesLeft - 1), 1500);
+            return done();
+        }
+        ws.binaryType = 'arraybuffer';
+        let acc = '';
+        const giveUp = setTimeout(() => { try { ws.close(); } catch (e) {} done(); }, 90000);
+        ws.onopen = () => ws.send(JSON.stringify({ AuthToken: token, columns: 120, rows: 30 }));
+        ws.onmessage = (ev) => {
+            const buf = new Uint8Array(ev.data);
+            if (String.fromCharCode(buf[0]) === '0') { // OUTPUT frame
+                acc += new TextDecoder().decode(buf.slice(1));
+                if (/Antigravity CLI/.test(acc)) {
+                    clearTimeout(giveUp);
+                    try { ws.close(); } catch (e) {}
+                    done();
+                }
+            }
+        };
+        ws.onerror = () => {};
+        ws.onclose = () => {
+            clearTimeout(giveUp);
+            if (settled || !cloudProxies.has(name)) return;
+            if (triesLeft > 0) setTimeout(() => attempt(triesLeft - 1), 1500);
+            else done(); // give up gracefully - dismiss the overlay rather than hang
+        };
+    };
+    attempt(20);
+}
+
 function startCloudProxy(name, callback) {
     const existing = cloudProxies.get(name);
     if (existing) {
@@ -68,7 +119,8 @@ function startCloudProxy(name, callback) {
         '--project', config.project, '--region', config.region, '--port', String(port)
     ], { detached: false, stdio: 'ignore' });
     cloudProxies.set(name, { port, proc });
-    proc.on('exit', () => { cloudProxies.delete(name); });
+    cloudReady.delete(name);
+    proc.on('exit', () => { cloudProxies.delete(name); cloudReady.delete(name); });
     // Poll until the proxy answers (auth handshake + cold start can take a bit)
     const http = require('http');
     let tries = 0;
@@ -76,6 +128,7 @@ function startCloudProxy(name, callback) {
         tries++;
         const req = http.get({ host: '127.0.0.1', port, timeout: 2000 }, res => {
             res.destroy();
+            probeTerminalReady(name, port); // watch for agy to finish painting
             callback({ success: true, port, url: `http://localhost:${port}` });
         });
         req.on('error', () => {
@@ -94,6 +147,7 @@ function stopCloudProxy(name, callback) {
         try { entry.proc.kill(); } catch (e) {}
         cloudProxies.delete(name);
     }
+    cloudReady.delete(name);
     if (callback) callback({ success: true });
 }
 
@@ -125,6 +179,7 @@ function getCloudSessions(callback) {
                 alwaysOn: minInstances !== '0',
                 deploying: cloudDeploying.has(name),
                 connected: !!proxy,
+                terminalReady: !!cloudReady.get(name),
                 url: proxy ? `http://localhost:${proxy.port}` : null,
                 proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
             };

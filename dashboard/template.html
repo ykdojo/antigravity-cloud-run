@@ -398,6 +398,13 @@
         .zone-header .zone-title { margin: 0; }
         .proxy-btn { cursor: pointer; }
         .cloud-badge { font-size: 10px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.6; margin-left: 6px; }
+        .frame-body { position: relative; flex: 1; display: flex; }
+        .frame-body iframe { flex: 1; width: 100%; border: 0; }
+        .frame-loading { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; cursor: pointer; background: #1a1a1a; color: #bbb; }
+        .frame-loading p { margin: 0; font-size: 14px; letter-spacing: 1px; }
+        .frame-loading-sub { max-width: 340px; font-size: 12px; opacity: 0.55; letter-spacing: 0; }
+        .spinner { width: 26px; height: 26px; border: 3px solid rgba(255,255,255,0.15); border-top-color: #e0913a; border-radius: 50%; animation: spin 0.9s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
     <script>
         let activeConfirm = null;
@@ -781,7 +788,14 @@
                                 <a href="${s.url}" target="_blank">open</a>
                             </div>
                         </div>
-                        <iframe src="${s.url}"></iframe>
+                        <div class="frame-body">
+                            <div class="frame-loading" onclick="this.remove()">
+                                <div class="spinner"></div>
+                                <p>cold starting</p>
+                                <p class="frame-loading-sub">Cloud Run is booting agy in the container. This clears automatically once the terminal is ready.</p>
+                            </div>
+                            <iframe src="${s.url}"></iframe>
+                        </div>
                     </div>`).join('');
                 let framesEl = document.getElementById('cloud-frames');
                 if (!framesEl) {
@@ -791,11 +805,25 @@
                 }
                 framesEl.className = 'frames' + (connected.length === 1 ? ' single' : '');
                 // Only rebuild iframes when the connected set changes, so we don't
-                // reload a live terminal on every 30s poll
+                // reload a live terminal on every poll
                 const key = connected.map(s => s.name + s.url).join(',');
                 if (framesEl.dataset.key !== key) {
                     framesEl.innerHTML = framesHtml;
                     framesEl.dataset.key = key;
+                }
+                // Drop each cold-start overlay the moment the server confirms agy
+                // has actually painted in that session (not a fixed timer)
+                connected.forEach(s => {
+                    if (s.terminalReady) {
+                        const ov = document.querySelector(`#cloud-frame-${s.name} .frame-loading`);
+                        if (ov) ov.remove();
+                    }
+                });
+                // While any connected session is still booting, poll quickly so the
+                // overlay clears promptly; otherwise fall back to the 30s cadence
+                if (connected.some(s => !s.terminalReady)) {
+                    clearTimeout(window._cloudFastPoll);
+                    window._cloudFastPoll = setTimeout(loadCloudSessions, 2000);
                 }
             } catch (e) {
                 el.innerHTML = '<div class="empty"><p>dashboard server unreachable</p></div>';
