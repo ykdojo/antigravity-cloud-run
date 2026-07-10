@@ -45,6 +45,58 @@ function getCloudConfig() {
 // Sessions currently being deployed (deploy-cloud.sh runs for minutes)
 const cloudDeploying = new Set();
 
+// Live proxies: service name -> { port, proc }. `gcloud run services proxy`
+// opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
+// iframe just like a local container (IAM is still enforced on every request).
+const cloudProxies = new Map();
+let nextProxyPort = 7781;
+
+function startCloudProxy(name, callback) {
+    const existing = cloudProxies.get(name);
+    if (existing) {
+        callback({ success: true, port: existing.port, url: `http://localhost:${existing.port}` });
+        return;
+    }
+    const config = getCloudConfig();
+    if (!config) {
+        callback({ success: false, error: 'no cloud config' });
+        return;
+    }
+    const port = nextProxyPort++;
+    const proc = spawn('gcloud', [
+        'run', 'services', 'proxy', name,
+        '--project', config.project, '--region', config.region, '--port', String(port)
+    ], { detached: false, stdio: 'ignore' });
+    cloudProxies.set(name, { port, proc });
+    proc.on('exit', () => { cloudProxies.delete(name); });
+    // Poll until the proxy answers (auth handshake + cold start can take a bit)
+    const http = require('http');
+    let tries = 0;
+    const check = () => {
+        tries++;
+        const req = http.get({ host: '127.0.0.1', port, timeout: 2000 }, res => {
+            res.destroy();
+            callback({ success: true, port, url: `http://localhost:${port}` });
+        });
+        req.on('error', () => {
+            if (!cloudProxies.has(name)) { callback({ success: false, error: 'proxy exited' }); return; }
+            if (tries >= 30) { callback({ success: true, port, url: `http://localhost:${port}`, slow: true }); return; }
+            setTimeout(check, 1000);
+        });
+        req.on('timeout', () => req.destroy());
+    };
+    setTimeout(check, 1000);
+}
+
+function stopCloudProxy(name, callback) {
+    const entry = cloudProxies.get(name);
+    if (entry) {
+        try { entry.proc.kill(); } catch (e) {}
+        cloudProxies.delete(name);
+    }
+    if (callback) callback({ success: true });
+}
+
 function getCloudSessions(callback) {
     const config = getCloudConfig();
     if (!config) {
@@ -65,12 +117,15 @@ function getCloudSessions(callback) {
             const name = svc.metadata.name;
             const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
             const minInstances = svc.spec?.template?.metadata?.annotations?.['autoscaling.knative.dev/minScale'] || '0';
+            const proxy = cloudProxies.get(name);
             return {
                 name,
                 displayName: name.replace('agrun-', ''),
                 ready,
                 alwaysOn: minInstances !== '0',
                 deploying: cloudDeploying.has(name),
+                connected: !!proxy,
+                url: proxy ? `http://localhost:${proxy.port}` : null,
                 proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
             };
         });
@@ -384,7 +439,28 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
             const { name } = JSON.parse(body);
+            stopCloudProxy(name);
             deleteCloudSession(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-connect' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            startCloudProxy(name, result => {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            });
+        });
+    } else if (url.pathname === '/api/cloud-disconnect' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            stopCloudProxy(name, result => {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
             });
@@ -411,3 +487,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
     console.log(`Dashboard: http://localhost:${PORT}`);
 });
+
+// Kill any live cloud proxies when the dashboard exits
+function shutdownProxies() {
+    cloudProxies.forEach(({ proc }) => { try { proc.kill(); } catch (e) {} });
+    process.exit(0);
+}
+process.on('SIGINT', shutdownProxies);
+process.on('SIGTERM', shutdownProxies);

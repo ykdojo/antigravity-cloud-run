@@ -747,13 +747,18 @@
                     return;
                 }
                 const rows = data.sessions.map(s => {
-                    const status = s.deploying ? 'deploying...' : (s.ready ? 'ready' : 'not ready');
+                    const status = s.deploying ? 'deploying...' : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready'));
                     const badge = s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>';
-                    const connect = s.ready && !s.deploying
-                        ? `<button class="start-btn proxy-btn" onclick="copyProxyCmd(this, '${s.proxyCmd.replace(/'/g, "\\'")}')">copy proxy cmd</button>`
-                        : '-';
-                    const del = s.deploying ? '' : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`;
-                    return `<tr class="${s.ready ? '' : 'inactive-row'}">
+                    let connect = '-';
+                    if (s.ready && !s.deploying) {
+                        connect = s.connected
+                            ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
+                            : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`;
+                    }
+                    const del = s.deploying ? '' : (s.connected
+                        ? `<button class="stop-btn" onclick="disconnectCloudSession('${s.name}', this)">disconnect</button>`
+                        : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`);
+                    return `<tr class="${s.connected ? '' : 'inactive-row'}" data-cloud-name="${s.name}" data-cloud-url="${s.url || ''}">
                         <td>${s.displayName}${badge}</td>
                         <td>${status}</td>
                         <td class="volume">${connect}</td>
@@ -762,19 +767,61 @@
                 }).join('');
                 el.innerHTML = `<div class="table-wrapper"><table class="sessions">
                     <thead><tr><th>Session</th><th>Status</th><th>Connect</th><th></th></tr></thead>
-                    <tbody>${rows}</tbody></table></div>
-                    <p class="modal-hint">connect: run the copied command in a terminal, then open http://localhost:7681</p>`;
+                    <tbody>${rows}</tbody></table></div>`;
+
+                // Live iframes for connected cloud sessions (via the local proxy)
+                const connected = data.sessions.filter(s => s.connected && s.url);
+                const framesHtml = connected.map(s => `
+                    <div class="frame" id="cloud-frame-${s.name}">
+                        <div class="frame-bar">
+                            <span>${s.displayName} <span class="cloud-badge">cloud</span></span>
+                            <div class="frame-actions">
+                                <a href="#" onclick="disconnectCloudSession('${s.name}'); return false;">disconnect</a>
+                                <a href="#" onclick="document.querySelector('#cloud-frame-${s.name} iframe').src='${s.url}'; return false;">refresh</a>
+                                <a href="${s.url}" target="_blank">open</a>
+                            </div>
+                        </div>
+                        <iframe src="${s.url}"></iframe>
+                    </div>`).join('');
+                let framesEl = document.getElementById('cloud-frames');
+                if (!framesEl) {
+                    framesEl = document.createElement('div');
+                    framesEl.id = 'cloud-frames';
+                    el.after(framesEl);
+                }
+                framesEl.className = 'frames' + (connected.length === 1 ? ' single' : '');
+                // Only rebuild iframes when the connected set changes, so we don't
+                // reload a live terminal on every 30s poll
+                const key = connected.map(s => s.name + s.url).join(',');
+                if (framesEl.dataset.key !== key) {
+                    framesEl.innerHTML = framesHtml;
+                    framesEl.dataset.key = key;
+                }
             } catch (e) {
                 el.innerHTML = '<div class="empty"><p>dashboard server unreachable</p></div>';
             }
         }
 
-        function copyProxyCmd(btn, cmd) {
-            navigator.clipboard.writeText(cmd).then(() => {
-                const orig = btn.textContent;
-                btn.textContent = 'copied!';
-                setTimeout(() => btn.textContent = orig, 1500);
+        async function connectCloudSession(name, btn) {
+            if (btn) { btn.disabled = true; btn.textContent = 'connecting...'; }
+            const res = await fetch('/api/cloud-connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
             });
+            const data = await res.json();
+            if (!data.success && btn) { btn.disabled = false; btn.textContent = 'connect'; alert('connect failed: ' + (data.error || 'unknown')); return; }
+            loadCloudSessions();
+        }
+
+        async function disconnectCloudSession(name, btn) {
+            if (btn) { btn.disabled = true; btn.textContent = 'disconnecting...'; }
+            await fetch('/api/cloud-disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            loadCloudSessions();
         }
 
         async function submitNewCloudSession() {
