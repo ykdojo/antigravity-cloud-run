@@ -2,7 +2,7 @@
 
 ## Overview
 
-Antigravity on Cloud Run runs the Antigravity CLI (`agy`) inside a sandboxed Docker container, accessible via a web terminal. Designed to work the same locally (Docker) and in the cloud (Cloud Run, planned).
+Antigravity on Cloud Run runs the Antigravity CLI (`agy`) inside a sandboxed Docker container, accessible via a web terminal. Works the same locally (Docker) and in the cloud (Cloud Run), managed from one dashboard.
 
 ## Web terminal
 

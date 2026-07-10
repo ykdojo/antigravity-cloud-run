@@ -142,5 +142,4 @@ Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell
 
 ## Roadmap
 
-- Dashboard: cloud sessions section (list/create/delete Cloud Run services)
 - Skills (in `setup/skills/`, not wired up for agy yet)
