@@ -48,7 +48,7 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 ## Config seeding
 
-`~/.gemini` is a volume mount, so baked-in defaults can't live there directly in the image. Instead the Dockerfile stages them in `/home/agrun/.gemini-defaults` (AGENTS.md, `antigravity-cli/settings.json`, statusline script, Playwright MCP config), and `run.sh` seeds them into `~/.gemini` on every start with a no-clobber copy - existing files are never overwritten, so user changes and credentials win.
+`~/.gemini` is a volume mount, so baked-in defaults can't live there directly in the image. Instead the Dockerfile stages them in `/home/agrun/.gemini-defaults` (AGENTS.md, `antigravity-cli/settings.json`, statusline script, Playwright MCP config), and `run.sh` seeds them into `~/.gemini` on every start, copying only files that don't exist yet. Anything already there is left untouched, so edited settings and refreshed credentials always survive a restart.
 
 ## Dashboard
 
