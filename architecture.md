@@ -63,7 +63,7 @@ One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/depl
 
 - **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker.
 - **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
-- **Persistence:** a GCS bucket per session, mounted at `/gcs-session` (gen2 execution environment). agy runs against local disk; the entrypoint restores from the bucket on boot and syncs back every 60 seconds and on shutdown.
+- **Persistence:** each session has its own GCS bucket holding a copy of `~/.gemini`. The instance's own disk is temporary, so the entrypoint restores from the bucket on boot, then syncs changes back every 60 seconds and on shutdown.
 - **Entrypoint:** the image's default command is `entrypoint-cloud.sh`: restore session state from the bucket, seed baked defaults, write the token if missing, start ttyd on `$PORT`, run the background sync loop. Local containers are unaffected: `run.sh` overrides the command with `sleep infinity` and manages ttyd itself.
 - **Scaling:** scale-to-zero by default (the live terminal dies on idle but conversations resume with `agy -c` from the synced bucket); `-a` deploys always-on (min-instances=1, a warm instance 24/7). ttyd WebSocket connections drop at Cloud Run's 60-minute request cap; tmux absorbs reconnects.
 - **Statusline note:** files restored from the bucket lose their executable bit, so settings invoke the statusline as `bash .../statusline.sh`.
