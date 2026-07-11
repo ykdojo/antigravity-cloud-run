@@ -55,7 +55,7 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 `dashboard/server.js` is a small Node server (localhost:7680) with no state of its own: buttons call HTTP endpoints, and the server shells out to the same scripts and CLIs you would run by hand.
 
 - **Local sessions:** listed via `docker ps`, created via `run.sh`, auto-refreshed by streaming `docker events` to the page (SSE). Running sessions render as live terminal iframes.
-- **Cloud sessions:** listed via `gcloud run services list` (filtered by the `agrun=session` label; project/region come from `~/.config/agrun/cloud.json`, written by the deploy script). Create runs `deploy-cloud.sh`; delete removes the service but keeps its bucket. Connect makes the server spawn `gcloud run services proxy` on a local port and iframe it - IAM is still enforced on every request; only the raw `run.app` URL can't be embedded. A cold-start overlay covers the iframe until the server (watching the ttyd WebSocket) confirms agy has painted.
+- **Cloud sessions:** listed via `gcloud run services list` (filtered by the `agrun=session` label; project/region come from `~/.config/agrun/cloud.json`, written by the deploy script). Create runs `deploy-cloud.sh`; delete removes the service but keeps its bucket. Connect makes the server spawn `gcloud run services proxy` on a local port and iframe it. A cold-start overlay covers the iframe until the server (watching the ttyd WebSocket) confirms agy has painted.
 
 ## Cloud Run
 
