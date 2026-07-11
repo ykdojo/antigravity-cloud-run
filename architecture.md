@@ -61,7 +61,7 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`.
 
-- **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker. Never expose ttyd publicly - it's a remote shell.
+- **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker.
 - **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
 - **Persistence:** a GCS bucket per session, mounted at `/gcs-session` (gen2 execution environment). agy runs against the container's local disk - its SQLite state can't live on gcsfuse directly (no POSIX locking; stale-file-handle errors) - and the entrypoint restores bucket -> local on boot, then syncs local -> bucket every 60 seconds and on SIGTERM. A restart loses at most about a minute of state.
 - **Entrypoint:** the image's default command is `entrypoint-cloud.sh`: restore session state from the bucket, seed baked defaults, write the token if missing, start ttyd on `$PORT`, run the background sync loop. Local containers are unaffected: `run.sh` overrides the command with `sleep infinity` and manages ttyd itself.
