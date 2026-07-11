@@ -59,7 +59,7 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 ## Cloud Run
 
-One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`. Instances of a single service can't act as sessions: Cloud Run treats them as interchangeable replicas, so sessions map to services.
+One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`.
 
 - **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker. Never expose ttyd publicly - it's a remote shell.
 - **Auth:** the host's agy OAuth token file is stored once in Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
