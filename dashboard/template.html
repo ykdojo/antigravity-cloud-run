@@ -756,6 +756,9 @@
         // Last fetched cloud session list; null until the first fetch lands
         let cloudSessions = null;
 
+        // Deploys started from this page: connect automatically once ready
+        const pendingAutoConnect = new Set();
+
         // Existing cloud sessions (deployed or deploying); failed ones don't
         // count - redeploying under the same name is how you retry
         function cloudSessionNameExists(name) {
@@ -872,6 +875,22 @@
                         if (ov) ov.remove();
                     }
                 });
+                // Keep the UI simple: with cloud sessions active, hide the
+                // local section's no-sessions help table and tip
+                const localEmpty = Array.from(document.querySelectorAll('.empty')).find(el => !el.closest('#cloud-content'));
+                if (localEmpty) {
+                    const cloudActive = data.sessions.some(s => !s.failed);
+                    localEmpty.querySelectorAll('.help, .tip').forEach(el => { el.style.display = cloudActive ? 'none' : ''; });
+                }
+                // Deploys started from this page connect themselves when ready
+                data.sessions.forEach(s => {
+                    if (!pendingAutoConnect.has(s.name)) return;
+                    if (s.failed) { pendingAutoConnect.delete(s.name); return; }
+                    if (s.ready && !s.deploying && !s.connected) {
+                        pendingAutoConnect.delete(s.name);
+                        connectCloudSession(s.name);
+                    }
+                });
                 // While any session is deploying or a connected one is still
                 // booting, poll quickly (surfaces fast deploy failures too);
                 // otherwise fall back to the 30s cadence
@@ -918,6 +937,7 @@
                 return;
             }
             closeNewCloudModal();
+            pendingAutoConnect.add(`agrun-${name}`);
             await fetch('/api/cloud-create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
