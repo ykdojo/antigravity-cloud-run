@@ -42,22 +42,17 @@ function getCloudConfig() {
     }
 }
 
-// Sessions currently being deployed (deploy-cloud.sh runs for minutes)
-const cloudDeploying = new Set();
-
 // Failed deploys: service name -> { error, log }. Shown in the dashboard
 // until dismissed or the session is redeployed.
 const cloudDeployErrors = new Map();
 
-// Deploys survive dashboard restarts: the script runs detached, so its pid
-// and log are persisted here and re-adopted on startup.
-const CLOUD_DEPLOYS_PATH = path.join(process.env.HOME, '.config', 'agrun', 'deploys.json');
-const cloudDeployPids = new Map(); // service name -> { pid, log }
+// Dismissed deploy failures: service name -> log mtime at dismissal. Keeps
+// the log sweep below from resurfacing an error the user already dismissed
+// (a newer log means a new attempt, which may fail again).
+const dismissedDeployErrors = new Map();
 
-function saveDeployState() {
-    try {
-        fs.writeFileSync(CLOUD_DEPLOYS_PATH, JSON.stringify(Object.fromEntries(cloudDeployPids)));
-    } catch (e) {}
+function deployLogPath(name) {
+    return path.join(process.env.HOME, '.config', 'agrun', `deploy-${name.replace('agrun-', '')}.log`);
 }
 
 function logTail(logPath, fallback) {
@@ -69,37 +64,43 @@ function logTail(logPath, fallback) {
     return fallback;
 }
 
-// A deploy ended without us seeing its exit code (adopted after a dashboard
-// restart): judge success by the script's final "Deployed." marker
-function finishAdoptedDeploy(name, logPath) {
-    cloudDeploying.delete(name);
-    cloudDeployPids.delete(name);
-    saveDeployState();
-    let done = false;
-    try { done = /^Deployed\./m.test(fs.readFileSync(logPath, 'utf8')); } catch (e) {}
-    if (!done) {
-        cloudDeployErrors.set(name, { error: logTail(logPath, 'deploy failed (no log)'), log: logPath });
-    }
+// Deploys in flight, found by scanning processes rather than a state file:
+// survives dashboard restarts and also sees deploys started from the CLI
+function runningDeploys() {
+    const names = new Set();
+    try {
+        execSync('ps -axo command', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+            .split('\n').forEach(line => {
+                if (!/deploy-cloud\.sh/.test(line)) return;
+                const m = line.match(/-s[= ]+([a-z0-9-]+)/);
+                names.add(`agrun-${m ? m[1] : 'default'}`);
+            });
+    } catch (e) {}
+    return names;
 }
 
-function adoptRunningDeploys() {
-    let saved = {};
-    try { saved = JSON.parse(fs.readFileSync(CLOUD_DEPLOYS_PATH, 'utf8')); } catch (e) { return; }
-    Object.entries(saved).forEach(([name, { pid, log }]) => {
-        let alive = false;
-        try { process.kill(pid, 0); alive = true; } catch (e) {}
-        if (!alive) { finishAdoptedDeploy(name, log); return; }
-        cloudDeploying.add(name);
-        cloudDeployPids.set(name, { pid, log });
-        const timer = setInterval(() => {
-            try { process.kill(pid, 0); } catch (e) {
-                clearInterval(timer);
-                finishAdoptedDeploy(name, log);
-            }
-        }, 3000);
-    });
+// Deploys that died without us seeing their exit (e.g. while the dashboard
+// was down): a recent log with no running process and no final "Deployed."
+// marker. The time window keeps old logs from resurfacing forever.
+const DEPLOY_LOG_WINDOW_MS = 15 * 60 * 1000;
+
+function sweepDeadDeploys(running) {
+    const dir = path.join(process.env.HOME, '.config', 'agrun');
+    try {
+        fs.readdirSync(dir).forEach(f => {
+            const m = f.match(/^deploy-(.+)\.log$/);
+            if (!m) return;
+            const name = `agrun-${m[1]}`;
+            if (running.has(name) || cloudDeployErrors.has(name)) return;
+            const logPath = path.join(dir, f);
+            const stat = fs.statSync(logPath);
+            if (Date.now() - stat.mtimeMs > DEPLOY_LOG_WINDOW_MS) return;
+            if ((dismissedDeployErrors.get(name) || 0) >= stat.mtimeMs) return;
+            if (/^Deployed\./m.test(fs.readFileSync(logPath, 'utf8'))) return;
+            cloudDeployErrors.set(name, { error: logTail(logPath, 'deploy ended unexpectedly'), log: logPath });
+        });
+    } catch (e) {}
 }
-adoptRunningDeploys();
 
 // Live proxies: service name -> { port, proc }. `gcloud run services proxy`
 // opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
@@ -211,9 +212,8 @@ function stopCloudProxy(name, callback) {
 // During the docker build/push, append the live sub-step (Dockerfile step or
 // pushed-layer count).
 function currentDeployStep(name) {
-    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name.replace('agrun-', '')}.log`);
     try {
-        const lines = fs.readFileSync(logPath, 'utf8').split('\n');
+        const lines = fs.readFileSync(deployLogPath(name), 'utf8').split('\n');
         let step = null, stepIdx = -1;
         for (let i = lines.length - 1; i >= 0; i--) {
             if (lines[i].startsWith('==> ')) { step = lines[i].slice(4).replace(/\.{3}$/, ''); stepIdx = i; break; }
@@ -235,9 +235,9 @@ function currentDeployStep(name) {
 }
 
 // Deploys in flight or failed, for sessions not (yet) in the service list
-function pendingCloudSessions(existing) {
+function pendingCloudSessions(existing, running) {
     const sessions = [];
-    cloudDeploying.forEach(name => {
+    running.forEach(name => {
         if (!existing.some(s => s.name === name)) {
             sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, step: currentDeployStep(name), proxyCmd: '' });
         }
@@ -251,9 +251,11 @@ function pendingCloudSessions(existing) {
 }
 
 function getCloudSessions(callback) {
+    const running = runningDeploys();
+    sweepDeadDeploys(running);
     const config = getCloudConfig();
     if (!config) {
-        callback({ configured: false, sessions: pendingCloudSessions([]) });
+        callback({ configured: false, sessions: pendingCloudSessions([], running) });
         return;
     }
     const { exec } = require('child_process');
@@ -277,8 +279,8 @@ function getCloudSessions(callback) {
                 displayName: name.replace('agrun-', ''),
                 ready,
                 alwaysOn: minInstances !== '0',
-                deploying: cloudDeploying.has(name),
-                step: cloudDeploying.has(name) ? currentDeployStep(name) : null,
+                deploying: running.has(name),
+                step: running.has(name) ? currentDeployStep(name) : null,
                 connected: !!proxy,
                 terminalReady: !!cloudReady.get(name),
                 url: proxy ? `http://localhost:${proxy.port}` : null,
@@ -286,7 +288,7 @@ function getCloudSessions(callback) {
             };
         });
         // Include deploys in flight or failed that don't show up in the list yet
-        sessions.push(...pendingCloudSessions(sessions));
+        sessions.push(...pendingCloudSessions(sessions, running));
         callback({ configured: true, project: config.project, region: config.region, sessions });
     });
 }
@@ -298,7 +300,7 @@ function createCloudSession(options, callback) {
         callback({ success: false, error: 'name must be lowercase letters, digits, dashes' });
         return;
     }
-    if (cloudDeploying.has(serviceName)) {
+    if (runningDeploys().has(serviceName)) {
         callback({ success: false, error: `${serviceName} is already deploying` });
         return;
     }
@@ -307,27 +309,16 @@ function createCloudSession(options, callback) {
     if (!options.zeroScale) args.push('-a'); // scale-to-zero is the script default
     const config = getCloudConfig();
     if (config) args.push('-P', config.project, '-r', config.region);
-    cloudDeploying.add(serviceName);
     cloudDeployErrors.delete(serviceName);
-    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
+    const logPath = deployLogPath(serviceName);
     const out = fs.openSync(logPath, 'w');
     const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
-    if (child.pid) {
-        cloudDeployPids.set(serviceName, { pid: child.pid, log: logPath });
-        saveDeployState();
-    }
-    const settle = () => {
-        cloudDeploying.delete(serviceName);
-        cloudDeployPids.delete(serviceName);
-        saveDeployState();
-        try { fs.closeSync(out); } catch (e) {}
-    };
     child.on('error', err => {
-        settle();
+        try { fs.closeSync(out); } catch (e) {}
         cloudDeployErrors.set(serviceName, { error: `could not start deploy script: ${err.message}`, log: logPath });
     });
     child.on('exit', code => {
-        settle();
+        try { fs.closeSync(out); } catch (e) {}
         if (code === 0) return;
         const fallback = code === 127
             ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
@@ -648,6 +639,7 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             const { name } = JSON.parse(body);
             cloudDeployErrors.delete(name);
+            try { dismissedDeployErrors.set(name, fs.statSync(deployLogPath(name)).mtimeMs); } catch (e) {}
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         });
