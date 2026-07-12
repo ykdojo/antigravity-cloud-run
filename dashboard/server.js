@@ -71,9 +71,14 @@ function runningDeploys() {
     try {
         execSync('ps -axo command', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
             .split('\n').forEach(line => {
-                if (!/deploy-cloud\.sh/.test(line)) return;
-                const m = line.match(/-s[= ]+([a-z0-9-]+)/);
-                names.add(`agrun-${m ? m[1] : 'default'}`);
+                // Only real script executions ("bash .../deploy-cloud.sh ..."),
+                // not watchers or greps that merely mention the name; parse -s
+                // from the script's own args so flags of other commands on the
+                // line can't match
+                const m = line.match(/\b(?:bash|sh)\s+\S*deploy-cloud\.sh\b(.*)$/);
+                if (!m) return;
+                const s = m[1].match(/\s-s[= ]+([a-z0-9-]+)/);
+                names.add(`agrun-${s ? s[1] : 'default'}`);
             });
     } catch (e) {}
     return names;

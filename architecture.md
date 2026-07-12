@@ -66,7 +66,6 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`.
 
-- **Image:** built with `--platform linux/amd64` (the only architecture Cloud Run runs) under a separate `agrun-amd64` tag, so the local `agrun` image stays native (arm64 on Apple Silicon). The first amd64 build on Apple Silicon runs emulated and is slow; later builds reuse the layer cache.
 - **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker.
 - **Auth:** the stored agy login (`~/.config/agrun/agy-oauth-token`, harvested from a local session) is pushed to Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
 - **Persistence:** each session has its own GCS bucket holding a copy of `~/.gemini`. The instance's own disk is temporary, so the entrypoint restores from the bucket on boot, then syncs changes back every 60 seconds and on shutdown.
