@@ -45,6 +45,10 @@ function getCloudConfig() {
 // Sessions currently being deployed (deploy-cloud.sh runs for minutes)
 const cloudDeploying = new Set();
 
+// Failed deploys: service name -> { error, log }. Shown in the dashboard
+// until dismissed or the session is redeployed.
+const cloudDeployErrors = new Map();
+
 // Live proxies: service name -> { port, proc }. `gcloud run services proxy`
 // opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
 // iframe just like a local container (IAM is still enforced on every request).
@@ -151,10 +155,26 @@ function stopCloudProxy(name, callback) {
     if (callback) callback({ success: true });
 }
 
+// Deploys in flight or failed, for sessions not (yet) in the service list
+function pendingCloudSessions(existing) {
+    const sessions = [];
+    cloudDeploying.forEach(name => {
+        if (!existing.some(s => s.name === name)) {
+            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
+        }
+    });
+    cloudDeployErrors.forEach(({ error, log }, name) => {
+        if (!existing.some(s => s.name === name)) {
+            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: false, failed: true, error, log, proxyCmd: '' });
+        }
+    });
+    return sessions;
+}
+
 function getCloudSessions(callback) {
     const config = getCloudConfig();
     if (!config) {
-        callback({ configured: false, sessions: [] });
+        callback({ configured: false, sessions: pendingCloudSessions([]) });
         return;
     }
     const { exec } = require('child_process');
@@ -184,12 +204,8 @@ function getCloudSessions(callback) {
                 proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
             };
         });
-        // Include sessions still deploying that don't show up in the list yet
-        cloudDeploying.forEach(name => {
-            if (!sessions.some(s => s.name === name)) {
-                sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
-            }
-        });
+        // Include deploys in flight or failed that don't show up in the list yet
+        sessions.push(...pendingCloudSessions(sessions));
         callback({ configured: true, project: config.project, region: config.region, sessions });
     });
 }
@@ -207,12 +223,33 @@ function createCloudSession(options, callback) {
     const config = getCloudConfig();
     if (config) args.push('-P', config.project, '-r', config.region);
     cloudDeploying.add(serviceName);
+    cloudDeployErrors.delete(serviceName);
     const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
     const out = fs.openSync(logPath, 'w');
     const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
+    const recordFailure = (error) => {
+        cloudDeploying.delete(serviceName);
+        cloudDeployErrors.set(serviceName, { error, log: logPath });
+    };
+    child.on('error', err => {
+        try { fs.closeSync(out); } catch (e) {}
+        recordFailure(`could not start deploy script: ${err.message}`);
+    });
     child.on('exit', code => {
         cloudDeploying.delete(serviceName);
-        fs.closeSync(out);
+        try { fs.closeSync(out); } catch (e) {}
+        if (code === 0) return;
+        let tail = '';
+        try {
+            const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(l => l.trim());
+            tail = lines.slice(-2).join(' | ');
+        } catch (e) {}
+        if (!tail) {
+            tail = code === 127
+                ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
+                : `deploy script exited immediately (exit ${code}) - is gcloud installed and logged in?`;
+        }
+        recordFailure(tail);
     });
     child.unref();
     callback({ success: true, deploying: serviceName, log: logPath });
@@ -519,6 +556,15 @@ const server = http.createServer((req, res) => {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
             });
+        });
+    } else if (url.pathname === '/api/cloud-dismiss-error' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { name } = JSON.parse(body);
+            cloudDeployErrors.delete(name);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
         });
     } else if (url.pathname === '/api/events') {
         // Server-Sent Events for real-time updates

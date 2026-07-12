@@ -398,6 +398,8 @@
         .zone-header .zone-title { margin: 0; }
         .proxy-btn { cursor: pointer; }
         .cloud-badge { font-size: 10px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.6; margin-left: 6px; }
+        .deploy-failed { color: #c98080; }
+        .deploy-error { color: #c98080; font-size: 12px; opacity: 0.85; word-break: break-word; }
         .frame-body { position: relative; flex: 1; display: flex; }
         .frame-body iframe { flex: 1; width: 100%; border: 0; }
         .frame-loading { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; cursor: pointer; background: #1a1a1a; color: #bbb; }
@@ -741,36 +743,40 @@
             try {
                 const res = await fetch('/api/cloud-sessions');
                 const data = await res.json();
-                if (!data.configured) {
-                    el.innerHTML = '<div class="empty"><p>no cloud config yet - run <code>./scripts/deploy-cloud.sh</code> once to set up</p></div>';
-                    return;
-                }
-                if (data.error) {
-                    el.innerHTML = `<div class="empty"><p>cloud error: ${data.error}</p></div>`;
-                    return;
-                }
                 if (data.sessions.length === 0) {
-                    el.innerHTML = '<div class="empty"><p>no cloud sessions</p></div>';
+                    if (!data.configured) {
+                        el.innerHTML = '<div class="empty"><p>no cloud config yet - run <code>./scripts/deploy-cloud.sh</code> once to set up</p></div>';
+                    } else if (data.error) {
+                        el.innerHTML = `<div class="empty"><p>cloud error: ${data.error}</p></div>`;
+                    } else {
+                        el.innerHTML = '<div class="empty"><p>no cloud sessions</p></div>';
+                    }
                     return;
                 }
+                const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                 const rows = data.sessions.map(s => {
-                    const status = s.deploying ? 'deploying...' : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready'));
-                    const badge = s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>';
+                    const status = s.failed ? '<span class="deploy-failed">deploy failed</span>'
+                        : (s.deploying ? 'deploying...' : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready')));
+                    const badge = s.failed ? '' : (s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>');
                     let connect = '-';
                     if (s.ready && !s.deploying) {
                         connect = s.connected
                             ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
                             : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`;
                     }
-                    const del = s.deploying ? '' : (s.connected
-                        ? `<button class="stop-btn" onclick="disconnectCloudSession('${s.name}', this)">disconnect</button>`
-                        : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`);
+                    const del = s.failed ? `<button class="delete-btn" onclick="dismissCloudError('${s.name}')">dismiss</button>`
+                        : (s.deploying ? '' : (s.connected
+                            ? `<button class="stop-btn" onclick="disconnectCloudSession('${s.name}', this)">disconnect</button>`
+                            : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`));
+                    const errorRow = s.failed
+                        ? `<tr class="inactive-row"><td colspan="4" class="deploy-error" title="full log: ${esc(s.log || '')}">${esc(s.error || 'unknown error')}</td></tr>`
+                        : '';
                     return `<tr class="${s.connected ? '' : 'inactive-row'}" data-cloud-name="${s.name}" data-cloud-url="${s.url || ''}">
                         <td>${s.displayName}${badge}</td>
                         <td>${status}</td>
                         <td class="volume">${connect}</td>
                         <td>${del}</td>
-                    </tr>`;
+                    </tr>${errorRow}`;
                 }).join('');
                 el.innerHTML = `<div class="table-wrapper"><table class="sessions">
                     <thead><tr><th>Session</th><th>Status</th><th>Connect</th><th></th></tr></thead>
@@ -819,9 +825,10 @@
                         if (ov) ov.remove();
                     }
                 });
-                // While any connected session is still booting, poll quickly so the
-                // overlay clears promptly; otherwise fall back to the 30s cadence
-                if (connected.some(s => !s.terminalReady)) {
+                // While any session is deploying or a connected one is still
+                // booting, poll quickly (surfaces fast deploy failures too);
+                // otherwise fall back to the 30s cadence
+                if (data.sessions.some(s => s.deploying) || connected.some(s => !s.terminalReady)) {
                     clearTimeout(window._cloudFastPoll);
                     window._cloudFastPoll = setTimeout(loadCloudSessions, 2000);
                 }
@@ -860,6 +867,15 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, zeroScale })
+            });
+            loadCloudSessions();
+        }
+
+        async function dismissCloudError(name) {
+            await fetch('/api/cloud-dismiss-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
             });
             loadCloudSessions();
         }
