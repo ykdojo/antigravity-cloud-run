@@ -30,7 +30,12 @@ fi
 
 sync_back() {
     if [ -d "$MOUNT" ]; then
-        rsync -a --delete --exclude 'antigravity-cli/log' "$GEMINI/" "$MOUNT/" 2>/dev/null
+        # gcsfuse doesn't support rsync's default temp-file+rename strategy or
+        # chmod/chown, so write files in place and skip permission bits. Errors
+        # go to the container log (visible in Cloud Run) instead of /dev/null.
+        rsync -rlt --inplace --no-perms --no-owner --no-group \
+            --delete --exclude 'antigravity-cli/log' "$GEMINI/" "$MOUNT/" \
+            || echo "sync_back: rsync failed with exit $?" >&2
     fi
 }
 
