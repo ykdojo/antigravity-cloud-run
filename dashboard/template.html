@@ -801,7 +801,7 @@
                 const rows = data.sessions.map(s => {
                     const stepText = s.step ? s.step.toLowerCase() : '...';
                     const statusText = s.failed ? 'deploy failed'
-                        : (s.deploying ? (stepText.startsWith('deploying') ? stepText : `deploying: ${stepText}`)
+                        : (s.deploying ? (stepText.startsWith('deploying') ? `${stepText}...` : `deploying: ${stepText}`)
                         : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready')));
                     const status = s.failed ? '<span class="deploy-failed">deploy failed</span>' : esc(statusText);
                     const badge = s.failed ? '' : (s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>');
