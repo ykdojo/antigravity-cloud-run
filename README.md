@@ -57,8 +57,6 @@ Opens at http://localhost:7680 with two sections, local and cloud:
 - Create new sessions (local: volume mounts; cloud: deploys to Cloud Run)
 - All sessions listed with start/stop/delete (local) and connect/disconnect/delete (cloud) controls
 - Live embedded terminals for active sessions, cloud included (via an IAM-authenticated proxy)
-- Cloud deploys show live progress (the current step, down to the Dockerfile step during builds), and failures surface the error in the session list instead of vanishing. Deploys keep running - and stay tracked - across dashboard restarts.
-
 ## What's included
 
 - Ubuntu 24.04
