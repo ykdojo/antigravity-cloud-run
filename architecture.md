@@ -60,7 +60,6 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 - **Local sessions:** listed via `docker ps`, created via `run.sh`, auto-refreshed by streaming `docker events` to the page (SSE). Running sessions render as live terminal iframes.
 - **Cloud sessions:** listed via `gcloud run services list` (filtered by the `agrun=session` label; project/region come from `~/.config/agrun/cloud.json`, written by the deploy script). Create runs `deploy-cloud.sh`; delete removes the service but keeps its bucket. Connect makes the server spawn `gcloud run services proxy` on a local port and iframe it. A cold-start overlay covers the iframe until the server (watching the ttyd WebSocket) confirms agy has painted.
-- **Deploys:** `deploy-cloud.sh` runs detached, logging to `~/.config/agrun/deploy-<session>.log`. The status column shows the step the script is on (parsed from the log's `==>` lines, plus the current Dockerfile step during builds and the layer count during pushes). A failed deploy surfaces the log tail in the session list with a dismiss button. In-flight deploys are found by scanning processes for `deploy-cloud.sh` (no state file, and deploys started from the CLI show up too); a recent log with no running process and no final `Deployed.` marker is reported as a failure, so deploys that died while the dashboard was away still surface.
 
 ## Cloud Run
 
