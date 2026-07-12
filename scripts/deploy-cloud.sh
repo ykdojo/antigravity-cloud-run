@@ -50,11 +50,13 @@ gcloud artifacts repositories describe "$REPO" --location "$REGION" --project "$
 
 echo "==> Building image..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-docker build -t agrun "$(dirname "$SCRIPT_DIR")"
+# Separate tag from the local `agrun` image, which stays native (arm64 on
+# Apple Silicon); Cloud Run only runs linux/amd64
+docker build --platform linux/amd64 -t agrun-amd64 "$(dirname "$SCRIPT_DIR")"
 
 echo "==> Pushing image..."
 gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-docker tag agrun "$IMAGE"
+docker tag agrun-amd64 "$IMAGE"
 docker push "$IMAGE"
 
 echo "==> Ensuring session bucket gs://$BUCKET..."

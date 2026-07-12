@@ -42,12 +42,70 @@ function getCloudConfig() {
     }
 }
 
-// Sessions currently being deployed (deploy-cloud.sh runs for minutes)
-const cloudDeploying = new Set();
-
 // Failed deploys: service name -> { error, log }. Shown in the dashboard
 // until dismissed or the session is redeployed.
 const cloudDeployErrors = new Map();
+
+// Dismissed deploy failures: service name -> log mtime at dismissal. Keeps
+// the log sweep below from resurfacing an error the user already dismissed
+// (a newer log means a new attempt, which may fail again).
+const dismissedDeployErrors = new Map();
+
+function deployLogPath(name) {
+    return path.join(process.env.HOME, '.config', 'agrun', `deploy-${name.replace('agrun-', '')}.log`);
+}
+
+function logTail(logPath, fallback) {
+    try {
+        const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(l => l.trim());
+        const tail = lines.slice(-2).join(' | ');
+        if (tail) return tail;
+    } catch (e) {}
+    return fallback;
+}
+
+// Deploys in flight, found by scanning processes rather than a state file:
+// survives dashboard restarts and also sees deploys started from the CLI
+function runningDeploys() {
+    const names = new Set();
+    try {
+        execSync('ps -axo command', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+            .split('\n').forEach(line => {
+                // Only real script executions ("bash .../deploy-cloud.sh ..."),
+                // not watchers or greps that merely mention the name; parse -s
+                // from the script's own args so flags of other commands on the
+                // line can't match
+                const m = line.match(/\b(?:bash|sh)\s+\S*deploy-cloud\.sh\b(.*)$/);
+                if (!m) return;
+                const s = m[1].match(/\s-s[= ]+([a-z0-9-]+)/);
+                names.add(`agrun-${s ? s[1] : 'default'}`);
+            });
+    } catch (e) {}
+    return names;
+}
+
+// Deploys that died without us seeing their exit (e.g. while the dashboard
+// was down): a recent log with no running process and no final "Deployed."
+// marker. The time window keeps old logs from resurfacing forever.
+const DEPLOY_LOG_WINDOW_MS = 15 * 60 * 1000;
+
+function sweepDeadDeploys(running) {
+    const dir = path.join(process.env.HOME, '.config', 'agrun');
+    try {
+        fs.readdirSync(dir).forEach(f => {
+            const m = f.match(/^deploy-(.+)\.log$/);
+            if (!m) return;
+            const name = `agrun-${m[1]}`;
+            if (running.has(name) || cloudDeployErrors.has(name)) return;
+            const logPath = path.join(dir, f);
+            const stat = fs.statSync(logPath);
+            if (Date.now() - stat.mtimeMs > DEPLOY_LOG_WINDOW_MS) return;
+            if ((dismissedDeployErrors.get(name) || 0) >= stat.mtimeMs) return;
+            if (/^Deployed\./m.test(fs.readFileSync(logPath, 'utf8'))) return;
+            cloudDeployErrors.set(name, { error: logTail(logPath, 'deploy ended unexpectedly'), log: logPath });
+        });
+    } catch (e) {}
+}
 
 // Live proxies: service name -> { port, proc }. `gcloud run services proxy`
 // opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
@@ -155,12 +213,38 @@ function stopCloudProxy(name, callback) {
     if (callback) callback({ success: true });
 }
 
+// Last "==> ..." line of a session's deploy log: the step it's on right now.
+// During the docker build/push, append the live sub-step (Dockerfile step or
+// pushed-layer count).
+function currentDeployStep(name) {
+    try {
+        const lines = fs.readFileSync(deployLogPath(name), 'utf8').split('\n');
+        let step = null, stepIdx = -1;
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].startsWith('==> ')) { step = lines[i].slice(4).replace(/\.{3}$/, ''); stepIdx = i; break; }
+        }
+        if (!step) return null;
+        if (step.startsWith('Building image')) {
+            for (let i = lines.length - 1; i > stepIdx; i--) {
+                const m = lines[i].match(/^#\d+ \[\s*(\d+\/\d+)\] (.*)/);
+                if (m) return `building image ${m[1]}: ${m[2]}`;
+            }
+        }
+        if (step.startsWith('Pushing image')) {
+            const pushed = lines.slice(stepIdx).filter(l => /: Pushed\s*$/.test(l)).length;
+            if (pushed) return `pushing image: ${pushed} layers pushed`;
+        }
+        return step;
+    } catch (e) {}
+    return null;
+}
+
 // Deploys in flight or failed, for sessions not (yet) in the service list
-function pendingCloudSessions(existing) {
+function pendingCloudSessions(existing, running) {
     const sessions = [];
-    cloudDeploying.forEach(name => {
+    running.forEach(name => {
         if (!existing.some(s => s.name === name)) {
-            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
+            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, step: currentDeployStep(name), proxyCmd: '' });
         }
     });
     cloudDeployErrors.forEach(({ error, log }, name) => {
@@ -172,9 +256,11 @@ function pendingCloudSessions(existing) {
 }
 
 function getCloudSessions(callback) {
+    const running = runningDeploys();
+    sweepDeadDeploys(running);
     const config = getCloudConfig();
     if (!config) {
-        callback({ configured: false, sessions: pendingCloudSessions([]) });
+        callback({ configured: false, sessions: pendingCloudSessions([], running) });
         return;
     }
     const { exec } = require('child_process');
@@ -187,6 +273,7 @@ function getCloudSessions(callback) {
         }
         let services = [];
         try { services = JSON.parse(stdout); } catch (e) {}
+        services = services.filter(svc => !cloudDeleting.has(svc.metadata.name));
         const sessions = services.map(svc => {
             const name = svc.metadata.name;
             const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
@@ -197,7 +284,8 @@ function getCloudSessions(callback) {
                 displayName: name.replace('agrun-', ''),
                 ready,
                 alwaysOn: minInstances !== '0',
-                deploying: cloudDeploying.has(name),
+                deploying: running.has(name),
+                step: running.has(name) ? currentDeployStep(name) : null,
                 connected: !!proxy,
                 terminalReady: !!cloudReady.get(name),
                 url: proxy ? `http://localhost:${proxy.port}` : null,
@@ -205,7 +293,7 @@ function getCloudSessions(callback) {
             };
         });
         // Include deploys in flight or failed that don't show up in the list yet
-        sessions.push(...pendingCloudSessions(sessions));
+        sessions.push(...pendingCloudSessions(sessions, running));
         callback({ configured: true, project: config.project, region: config.region, sessions });
     });
 }
@@ -217,43 +305,38 @@ function createCloudSession(options, callback) {
         callback({ success: false, error: 'name must be lowercase letters, digits, dashes' });
         return;
     }
+    if (runningDeploys().has(serviceName)) {
+        callback({ success: false, error: `${serviceName} is already deploying` });
+        return;
+    }
     const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
     const args = ['-s', name];
     if (!options.zeroScale) args.push('-a'); // scale-to-zero is the script default
     const config = getCloudConfig();
     if (config) args.push('-P', config.project, '-r', config.region);
-    cloudDeploying.add(serviceName);
     cloudDeployErrors.delete(serviceName);
-    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
+    const logPath = deployLogPath(serviceName);
     const out = fs.openSync(logPath, 'w');
     const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
-    const recordFailure = (error) => {
-        cloudDeploying.delete(serviceName);
-        cloudDeployErrors.set(serviceName, { error, log: logPath });
-    };
     child.on('error', err => {
         try { fs.closeSync(out); } catch (e) {}
-        recordFailure(`could not start deploy script: ${err.message}`);
+        cloudDeployErrors.set(serviceName, { error: `could not start deploy script: ${err.message}`, log: logPath });
     });
     child.on('exit', code => {
-        cloudDeploying.delete(serviceName);
         try { fs.closeSync(out); } catch (e) {}
         if (code === 0) return;
-        let tail = '';
-        try {
-            const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(l => l.trim());
-            tail = lines.slice(-2).join(' | ');
-        } catch (e) {}
-        if (!tail) {
-            tail = code === 127
-                ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
-                : `deploy script exited immediately (exit ${code}) - is gcloud installed and logged in?`;
-        }
-        recordFailure(tail);
+        const fallback = code === 127
+            ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
+            : `deploy script exited immediately (exit ${code}) - is gcloud installed and logged in?`;
+        cloudDeployErrors.set(serviceName, { error: logTail(logPath, fallback), log: logPath });
     });
     child.unref();
     callback({ success: true, deploying: serviceName, log: logPath });
 }
+
+// Services mid-deletion: hidden from the session list right away, while
+// `gcloud run services delete` finishes in the background
+const cloudDeleting = new Set();
 
 function deleteCloudSession(name, callback) {
     const config = getCloudConfig();
@@ -262,8 +345,13 @@ function deleteCloudSession(name, callback) {
         return;
     }
     const { exec } = require('child_process');
+    cloudDeleting.add(name);
     exec(`gcloud run services delete ${name} --project ${config.project} --region ${config.region} --quiet`,
-        { timeout: 120000 }, (err) => callback({ success: !err }));
+        { timeout: 120000 }, (err) => {
+            cloudDeleting.delete(name);
+            if (err) cloudDeployErrors.set(name, { error: `delete failed: ${err.message.split('\n')[0]}`, log: '' });
+        });
+    callback({ success: true });
 }
 
 function getSessions() {
@@ -355,12 +443,6 @@ function createContainer(options) {
         if (options.volume) {
             args += ` -v ${options.volume}`;
         }
-        if (options.query) {
-            // Escape quotes in the query
-            const escapedQuery = options.query.replace(/"/g, '\\"');
-            args += ` -q "${escapedQuery}"`;
-        }
-
         const output = execSync(`${scriptPath} ${args}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 
         // Extract URL from output
@@ -418,9 +500,8 @@ function renderContent(sessions) {
                 <tr><td><code>./scripts/run.sh -s name</code></td><td>named session</td></tr>
                 <tr><td><code>./scripts/run.sh -n</code></td><td>skip opening browser</td></tr>
                 <tr><td><code>./scripts/run.sh -v ~/myproject:/home/agrun/myproject</code></td><td>mount volume</td></tr>
-                <tr><td><code>./scripts/run.sh -q "question"</code></td><td>start with query</td></tr>
             </table>
-            <p class="tip">tip: ${['in a session, press q or scroll to the bottom to exit scroll mode and resume typing', 'on this dashboard, press tab and enter to quickly create a new session', 'run node scripts/manage-env.js to manage environment variables'][Math.floor(Math.random() * 3)]}</p>
+            <p class="tip">tip: ${['in a session, press q or scroll to the bottom to exit scroll mode and resume typing', 'on this dashboard, press shift-tab or tab and enter to quickly create a new session', 'run node scripts/manage-env.js to manage environment variables'][Math.floor(Math.random() * 3)]}</p>
         </div>`;
     }
 
@@ -563,6 +644,7 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             const { name } = JSON.parse(body);
             cloudDeployErrors.delete(name);
+            try { dismissedDeployErrors.set(name, fs.statSync(deployLogPath(name)).mtimeMs); } catch (e) {}
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         });

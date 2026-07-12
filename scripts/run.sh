@@ -8,10 +8,9 @@ SESSIONS_DIR="$AGRUN_DIR/sessions"
 SESSION_NAME=""
 VOLUME_MOUNT=""
 NO_OPEN=false
-QUERY=""
 
 # Parse arguments
-while getopts "s:v:nq:" opt; do
+while getopts "s:v:n" opt; do
     case $opt in
         s)
             SESSION_NAME="$OPTARG"
@@ -22,11 +21,8 @@ while getopts "s:v:nq:" opt; do
         n)
             NO_OPEN=true
             ;;
-        q)
-            QUERY="$OPTARG"
-            ;;
         *)
-            echo "Usage: $0 [-s session_name] [-v /host/path:/container/path] [-n] [-q \"question\"]"
+            echo "Usage: $0 [-s session_name] [-v /host/path:/container/path] [-n]"
             exit 1
             ;;
     esac
@@ -210,26 +206,6 @@ docker exec -d "$CONTAINER_NAME" \
 echo ""
 echo "Antigravity on Cloud Run is running at: http://localhost:${PORT}"
 
-# Query mode - send query to the interactive session
-if [ -n "$QUERY" ]; then
-    echo "Starting session and sending query..."
-    # Start tmux session directly (same as ttyd-wrapper.sh does)
-    docker exec "$CONTAINER_NAME" bash -c '
-        if ! tmux has-session -t main 2>/dev/null; then
-            tmux -f /dev/null new -d -s main
-            tmux set -t main status off
-            tmux set -t main mouse on
-            tmux send-keys -t main "agy --dangerously-skip-permissions" Enter
-        fi
-    '
-    # Wait for agy to initialize
-    sleep 3
-    # Send the query
-    docker exec "$CONTAINER_NAME" tmux send-keys -t main "$QUERY" Enter
-    sleep 0.5
-    docker exec "$CONTAINER_NAME" tmux send-keys -t main Enter
-    echo "Query sent: $QUERY"
-fi
 echo ""
 echo "To stop: docker stop $CONTAINER_NAME"
 

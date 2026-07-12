@@ -54,10 +54,9 @@ node dashboard/server.js
 ```
 
 Opens at http://localhost:7680 with two sections, local and cloud:
-- Create new sessions (local: volume mounts and initial queries; cloud: deploys to Cloud Run)
+- Create new sessions (local: volume mounts; cloud: deploys to Cloud Run)
 - All sessions listed with start/stop/delete (local) and connect/disconnect/delete (cloud) controls
 - Live embedded terminals for active sessions, cloud included (via an IAM-authenticated proxy)
-
 ## What's included
 
 - Ubuntu 24.04
@@ -95,7 +94,7 @@ Cloud sessions persist the same data to a per-session Cloud Storage bucket inste
 
 ## Authentication
 
-agy reuses your host login: `run.sh` copies `~/.gemini/antigravity-cli/antigravity-oauth-token` from the host into each new session (never overwriting a session's own token, since agy refreshes it). No host login? agy falls back to an interactive Google sign-in in the web terminal, done once per session. (Note: be extra careful with this token because it seems to be granted the [full `cloud-platform` scope](https://github.com/google-antigravity/antigravity-cli/issues/592).)
+agy needs one Google sign-in, done inside a container - `run.sh` prints the `docker exec` command to run when a session has no login. After that, `run.sh` reuses the harvested token for every new session. (Note: be extra careful with this token because it seems to be granted the [full `cloud-platform` scope](https://github.com/google-antigravity/antigravity-cli/issues/592).)
 
 Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
 
@@ -110,7 +109,7 @@ You can add any additional secrets by creating files in the `.secrets/` director
 | Script | Description |
 |--------|-------------|
 | `scripts/build.sh` | Build the Docker image and remove old container |
-| `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser, `-q "question"` to start with a query. |
+| `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser. |
 | `scripts/deploy-cloud.sh` | Deploy a session to Cloud Run (scale-to-zero by default). `-s name` for the session, `-a` for always-on, `-P`/`-r` for project/region. |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
@@ -143,7 +142,7 @@ Deploy a session to Cloud Run (one service per session):
 ./scripts/deploy-cloud.sh -s work -a       # always-on (a warm instance 24/7 - costs real money)
 ```
 
-The script pushes the image to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (session state is continuously backed up to it), and deploys IAM-gated. Connect from the dashboard's cloud section, or manually with:
+The script builds the image for linux/amd64 (what Cloud Run runs; your local image stays native), pushes it to Artifact Registry, stores your agy login in Secret Manager, creates a GCS bucket per session (session state is continuously backed up to it), and deploys IAM-gated. Connect from the dashboard's cloud section, or manually with:
 
 ```bash
 gcloud run services proxy agrun-work --region us-central1 --port 7681
