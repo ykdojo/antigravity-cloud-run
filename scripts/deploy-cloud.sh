@@ -24,12 +24,18 @@ if [ -z "$PROJECT" ]; then
     exit 1
 fi
 
+STORED_AGY_TOKEN="${XDG_CONFIG_HOME:-$HOME/.config}/agrun/agy-oauth-token"
+if [ ! -f "$STORED_AGY_TOKEN" ]; then
+    echo "Error: no agy login stored ($STORED_AGY_TOKEN)." >&2
+    echo "Log in through a local container first: run ./scripts/run.sh and follow its sign-in instructions." >&2
+    exit 1
+fi
+
 SERVICE="agrun-${SESSION_NAME}"
 REPO="agrun"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/agrun:latest"
 BUCKET="${PROJECT}-agrun-${SESSION_NAME}"
 SECRET="agy-oauth-token"
-STORED_AGY_TOKEN="${XDG_CONFIG_HOME:-$HOME/.config}/agrun/agy-oauth-token"
 
 echo "Project: $PROJECT | Region: $REGION | Service: $SERVICE"
 
@@ -57,11 +63,6 @@ gcloud storage buckets describe "gs://$BUCKET" --project "$PROJECT" >/dev/null 2
         --location "$REGION" --uniform-bucket-level-access
 
 echo "==> Ensuring agy login secret..."
-if [ ! -f "$STORED_AGY_TOKEN" ]; then
-    echo "Error: no agy login stored ($STORED_AGY_TOKEN)." >&2
-    echo "Log in through a local container first: run ./scripts/run.sh and follow its sign-in instructions." >&2
-    exit 1
-fi
 if gcloud secrets describe "$SECRET" --project "$PROJECT" >/dev/null 2>&1; then
     gcloud secrets versions add "$SECRET" --project "$PROJECT" --data-file "$STORED_AGY_TOKEN" --quiet
 else
