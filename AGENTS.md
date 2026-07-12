@@ -40,13 +40,12 @@ This mounts the project at `/home/agrun/myproject` inside the container. Use the
 
 ## Research sessions
 
-For web research or any task requiring URL fetching, use a container session instead of doing it directly on the host. The `-q` option sends a query directly to agy inside the container:
+For web research or any task requiring URL fetching, use a container session instead of doing it directly on the host. Start (or reuse) a session, then send the query to agy via tmux (see "Sending commands to the container via tmux" below):
 
 ```bash
-./scripts/run.sh -s research -n -q "Research Inngest and explain how durable execution works"
+./scripts/run.sh -s research -n
+docker exec agrun-research tmux send-keys -t main 'Research Inngest and explain how durable execution works' Enter
 ```
-
-This starts the container (or reuses an existing one) and sends the query to agy running inside it.
 
 ## Dashboard
 
