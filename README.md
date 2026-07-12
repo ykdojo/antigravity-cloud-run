@@ -94,7 +94,7 @@ Cloud sessions persist the same data to a per-session Cloud Storage bucket inste
 
 ## Authentication
 
-agy reuses your host login: `run.sh` copies `~/.gemini/antigravity-cli/antigravity-oauth-token` from the host into each new session (never overwriting a session's own token, since agy refreshes it). No host login? agy falls back to an interactive Google sign-in in the web terminal, done once per session. (Note: be extra careful with this token because it seems to be granted the [full `cloud-platform` scope](https://github.com/google-antigravity/antigravity-cli/issues/592).)
+agy needs one Google sign-in, done inside a container - `run.sh` prints the `docker exec` command to run when a session has no login. After that, `run.sh` reuses the harvested token for every new session. (Note: be extra careful with this token because it seems to be granted the [full `cloud-platform` scope](https://github.com/google-antigravity/antigravity-cli/issues/592).)
 
 Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
 
