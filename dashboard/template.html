@@ -61,7 +61,12 @@
             text-decoration: none;
         }
         td a:hover { text-decoration: underline; }
-        .sessions th:nth-child(4), .sessions td:nth-child(4) { width: 85px; }
+        /* Wide enough for the longest button (disconnect), so the table
+           never overflows into a side scroll */
+        .sessions th:nth-child(4), .sessions td:nth-child(4) { width: 100px; }
+        /* Buttons keep their own text direction even inside rtl-truncated
+           cells, so "connecting..." doesn't render as "...connecting" */
+        td button { direction: ltr; }
         .sessions td:nth-child(2) {
             max-width: 30vw;
             overflow: hidden;
@@ -122,6 +127,15 @@
             white-space: normal;
             word-break: break-all;
             direction: ltr;
+        }
+        /* Status cells truncate at the end (unlike the URL column's rtl trick)
+           and expand on hover like the volume column */
+        .sessions td.status { direction: ltr; }
+        .sessions td.status:hover {
+            max-width: none;
+            overflow: visible;
+            white-space: normal;
+            word-break: break-word;
         }
         .frames {
             display: grid;
@@ -610,7 +624,6 @@
             // Reset form
             document.getElementById('session-name').value = '';
             document.getElementById('session-volume').value = '';
-            document.getElementById('session-query').value = '';
             document.getElementById('session-open-tab').checked = false;
             clearSessionNameError();
         }
@@ -657,7 +670,6 @@
         async function submitNewSession() {
             const name = document.getElementById('session-name').value.replace(/ /g, '-').toLowerCase().trim() || 'default';
             const volume = document.getElementById('session-volume').value.trim();
-            const query = document.getElementById('session-query').value.trim();
             const openTab = document.getElementById('session-open-tab').checked;
 
             // Check if session already exists
@@ -675,7 +687,7 @@
             const res = await fetch('/api/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, volume, query, openTab })
+                body: JSON.stringify({ name, volume, openTab })
             });
             const data = await res.json();
             if (data.success) {
@@ -734,8 +746,39 @@
 
         // === Cloud sessions ===
 
-        function openNewCloudModal() { document.getElementById('new-cloud-modal').classList.add('open'); }
+        function openNewCloudModal() {
+            document.getElementById('new-cloud-modal').classList.add('open');
+            document.getElementById('cloud-session-name').focus();
+            validateCloudSessionName();
+        }
         function closeNewCloudModal() { document.getElementById('new-cloud-modal').classList.remove('open'); }
+
+        // Last fetched cloud session list; null until the first fetch lands
+        let cloudSessions = null;
+
+        // Existing cloud sessions (deployed or deploying); failed ones don't
+        // count - redeploying under the same name is how you retry
+        function cloudSessionNameExists(name) {
+            return (cloudSessions || []).some(s => !s.failed && s.name === `agrun-${name}`);
+        }
+
+        function setCloudNameError(message) {
+            const input = document.getElementById('cloud-session-name');
+            const hint = document.getElementById('cloud-session-name-hint');
+            input.classList.toggle('error', !!message);
+            hint.classList.toggle('error', !!message);
+            hint.textContent = message || 'use a unique name to create a new session';
+        }
+
+        function validateCloudSessionName() {
+            const input = document.getElementById('cloud-session-name');
+            const pos = input.selectionStart;
+            const had = input.value;
+            input.value = input.value.replace(/ /g, '-').toLowerCase();
+            if (input.value !== had) input.setSelectionRange(pos, pos);
+            const name = input.value.trim() || 'default';
+            setCloudNameError(cloudSessionNameExists(name) ? `cloud session "${name}" already exists` : null);
+        }
 
         async function loadCloudSessions() {
             const el = document.getElementById('cloud-content');
@@ -743,6 +786,7 @@
             try {
                 const res = await fetch('/api/cloud-sessions');
                 const data = await res.json();
+                cloudSessions = data.sessions || [];
                 if (data.sessions.length === 0) {
                     if (!data.configured) {
                         el.innerHTML = '<div class="empty"><p>no cloud config yet - run <code>./scripts/deploy-cloud.sh</code> once to set up</p></div>';
@@ -755,8 +799,10 @@
                 }
                 const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                 const rows = data.sessions.map(s => {
-                    const status = s.failed ? '<span class="deploy-failed">deploy failed</span>'
-                        : (s.deploying ? 'deploying...' : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready')));
+                    const statusText = s.failed ? 'deploy failed'
+                        : (s.deploying ? `deploying: ${s.step ? s.step.toLowerCase() : '...'}`
+                        : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready')));
+                    const status = s.failed ? '<span class="deploy-failed">deploy failed</span>' : esc(statusText);
                     const badge = s.failed ? '' : (s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>');
                     let connect = '-';
                     if (s.ready && !s.deploying) {
@@ -767,13 +813,13 @@
                     const del = s.failed ? `<button class="delete-btn" onclick="dismissCloudError('${s.name}')">dismiss</button>`
                         : (s.deploying ? '' : (s.connected
                             ? `<button class="stop-btn" onclick="disconnectCloudSession('${s.name}', this)">disconnect</button>`
-                            : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)">delete</button>`));
+                            : `<button class="delete-btn" onclick="deleteCloudSession('${s.name}', this)" title="deletes the Cloud Run service; session data in its GCS bucket is kept">delete</button>`));
                     const errorRow = s.failed
                         ? `<tr class="inactive-row"><td colspan="4" class="deploy-error" title="full log: ${esc(s.log || '')}">${esc(s.error || 'unknown error')}</td></tr>`
                         : '';
                     return `<tr class="${s.connected ? '' : 'inactive-row'}" data-cloud-name="${s.name}" data-cloud-url="${s.url || ''}">
                         <td>${s.displayName}${badge}</td>
-                        <td>${status}</td>
+                        <td class="status" title="${esc(statusText)}">${status}</td>
                         <td class="volume">${connect}</td>
                         <td>${del}</td>
                     </tr>${errorRow}`;
@@ -860,8 +906,16 @@
         }
 
         async function submitNewCloudSession() {
-            const name = document.getElementById('cloud-session-name').value.trim() || 'default';
+            const name = document.getElementById('cloud-session-name').value.replace(/ /g, '-').toLowerCase().trim() || 'default';
             const zeroScale = document.getElementById('cloud-zero-scale').checked;
+            if (cloudSessions === null) {
+                setCloudNameError('still loading cloud sessions - try again in a moment');
+                return;
+            }
+            if (cloudSessionNameExists(name)) {
+                setCloudNameError(`cloud session "${name}" already exists`);
+                return;
+            }
             closeNewCloudModal();
             await fetch('/api/cloud-create', {
                 method: 'POST',
@@ -881,14 +935,23 @@
         }
 
         async function deleteCloudSession(name, btn) {
-            if (!confirm(`Delete cloud session ${name}? Session data in its GCS bucket is kept.`)) return;
-            btn.disabled = true; btn.textContent = 'deleting...';
-            await fetch('/api/cloud-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
-            });
-            loadCloudSessions();
+            // Same two-click confirm as local sessions
+            if (btn.dataset.confirming === 'true') {
+                btn.disabled = true; btn.textContent = 'deleting...';
+                await fetch('/api/cloud-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                loadCloudSessions();
+                return;
+            }
+            if (activeConfirm && activeConfirm !== btn) resetButton(activeConfirm);
+            btn.dataset.confirming = 'true';
+            btn.dataset.originalText = btn.textContent;
+            btn.textContent = 'delete?';
+            activeConfirm = btn;
+            btn.timeout = setTimeout(() => resetButton(btn), 3000);
         }
 
         if (document.readyState === 'loading') {
@@ -919,7 +982,8 @@
             <p class="modal-subtitle">deploys a Cloud Run service (takes a few minutes)</p>
             <div class="modal-field">
                 <label for="cloud-session-name">session name</label>
-                <input type="text" id="cloud-session-name" placeholder="default">
+                <input type="text" id="cloud-session-name" placeholder="default" oninput="validateCloudSessionName()">
+                <p class="modal-hint" id="cloud-session-name-hint">use a unique name to create a new session</p>
                 <p class="modal-hint">lowercase letters, digits, dashes</p>
             </div>
             <div class="modal-field-checkbox">
@@ -945,10 +1009,6 @@
             <div class="modal-field">
                 <label for="session-volume">volume mount</label>
                 <input type="text" id="session-volume" placeholder="~/myproject:/home/agrun/myproject">
-            </div>
-            <div class="modal-field">
-                <label for="session-query">initial query</label>
-                <input type="text" id="session-query" placeholder="Research topic X...">
             </div>
             <div class="modal-field-checkbox">
                 <input type="checkbox" id="session-open-tab">

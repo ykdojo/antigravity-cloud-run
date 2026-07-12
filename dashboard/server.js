@@ -49,6 +49,58 @@ const cloudDeploying = new Set();
 // until dismissed or the session is redeployed.
 const cloudDeployErrors = new Map();
 
+// Deploys survive dashboard restarts: the script runs detached, so its pid
+// and log are persisted here and re-adopted on startup.
+const CLOUD_DEPLOYS_PATH = path.join(process.env.HOME, '.config', 'agrun', 'deploys.json');
+const cloudDeployPids = new Map(); // service name -> { pid, log }
+
+function saveDeployState() {
+    try {
+        fs.writeFileSync(CLOUD_DEPLOYS_PATH, JSON.stringify(Object.fromEntries(cloudDeployPids)));
+    } catch (e) {}
+}
+
+function logTail(logPath, fallback) {
+    try {
+        const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(l => l.trim());
+        const tail = lines.slice(-2).join(' | ');
+        if (tail) return tail;
+    } catch (e) {}
+    return fallback;
+}
+
+// A deploy ended without us seeing its exit code (adopted after a dashboard
+// restart): judge success by the script's final "Deployed." marker
+function finishAdoptedDeploy(name, logPath) {
+    cloudDeploying.delete(name);
+    cloudDeployPids.delete(name);
+    saveDeployState();
+    let done = false;
+    try { done = /^Deployed\./m.test(fs.readFileSync(logPath, 'utf8')); } catch (e) {}
+    if (!done) {
+        cloudDeployErrors.set(name, { error: logTail(logPath, 'deploy failed (no log)'), log: logPath });
+    }
+}
+
+function adoptRunningDeploys() {
+    let saved = {};
+    try { saved = JSON.parse(fs.readFileSync(CLOUD_DEPLOYS_PATH, 'utf8')); } catch (e) { return; }
+    Object.entries(saved).forEach(([name, { pid, log }]) => {
+        let alive = false;
+        try { process.kill(pid, 0); alive = true; } catch (e) {}
+        if (!alive) { finishAdoptedDeploy(name, log); return; }
+        cloudDeploying.add(name);
+        cloudDeployPids.set(name, { pid, log });
+        const timer = setInterval(() => {
+            try { process.kill(pid, 0); } catch (e) {
+                clearInterval(timer);
+                finishAdoptedDeploy(name, log);
+            }
+        }, 3000);
+    });
+}
+adoptRunningDeploys();
+
 // Live proxies: service name -> { port, proc }. `gcloud run services proxy`
 // opens an IAM-authenticated tunnel at localhost:port, which the dashboard can
 // iframe just like a local container (IAM is still enforced on every request).
@@ -155,12 +207,39 @@ function stopCloudProxy(name, callback) {
     if (callback) callback({ success: true });
 }
 
+// Last "==> ..." line of a session's deploy log: the step it's on right now.
+// During the docker build/push, append the live sub-step (Dockerfile step or
+// pushed-layer count).
+function currentDeployStep(name) {
+    const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name.replace('agrun-', '')}.log`);
+    try {
+        const lines = fs.readFileSync(logPath, 'utf8').split('\n');
+        let step = null, stepIdx = -1;
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].startsWith('==> ')) { step = lines[i].slice(4).replace(/\.{3}$/, ''); stepIdx = i; break; }
+        }
+        if (!step) return null;
+        if (step.startsWith('Building image')) {
+            for (let i = lines.length - 1; i > stepIdx; i--) {
+                const m = lines[i].match(/^#\d+ \[\s*(\d+\/\d+)\] (.*)/);
+                if (m) return `building image ${m[1]}: ${m[2]}`;
+            }
+        }
+        if (step.startsWith('Pushing image')) {
+            const pushed = lines.slice(stepIdx).filter(l => /: Pushed\s*$/.test(l)).length;
+            if (pushed) return `pushing image: ${pushed} layers pushed`;
+        }
+        return step;
+    } catch (e) {}
+    return null;
+}
+
 // Deploys in flight or failed, for sessions not (yet) in the service list
 function pendingCloudSessions(existing) {
     const sessions = [];
     cloudDeploying.forEach(name => {
         if (!existing.some(s => s.name === name)) {
-            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, proxyCmd: '' });
+            sessions.push({ name, displayName: name.replace('agrun-', ''), ready: false, alwaysOn: false, deploying: true, step: currentDeployStep(name), proxyCmd: '' });
         }
     });
     cloudDeployErrors.forEach(({ error, log }, name) => {
@@ -187,6 +266,7 @@ function getCloudSessions(callback) {
         }
         let services = [];
         try { services = JSON.parse(stdout); } catch (e) {}
+        services = services.filter(svc => !cloudDeleting.has(svc.metadata.name));
         const sessions = services.map(svc => {
             const name = svc.metadata.name;
             const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
@@ -198,6 +278,7 @@ function getCloudSessions(callback) {
                 ready,
                 alwaysOn: minInstances !== '0',
                 deploying: cloudDeploying.has(name),
+                step: cloudDeploying.has(name) ? currentDeployStep(name) : null,
                 connected: !!proxy,
                 terminalReady: !!cloudReady.get(name),
                 url: proxy ? `http://localhost:${proxy.port}` : null,
@@ -217,6 +298,10 @@ function createCloudSession(options, callback) {
         callback({ success: false, error: 'name must be lowercase letters, digits, dashes' });
         return;
     }
+    if (cloudDeploying.has(serviceName)) {
+        callback({ success: false, error: `${serviceName} is already deploying` });
+        return;
+    }
     const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
     const args = ['-s', name];
     if (!options.zeroScale) args.push('-a'); // scale-to-zero is the script default
@@ -227,33 +312,35 @@ function createCloudSession(options, callback) {
     const logPath = path.join(process.env.HOME, '.config', 'agrun', `deploy-${name}.log`);
     const out = fs.openSync(logPath, 'w');
     const child = spawn(scriptPath, args, { detached: true, stdio: ['ignore', out, out] });
-    const recordFailure = (error) => {
+    if (child.pid) {
+        cloudDeployPids.set(serviceName, { pid: child.pid, log: logPath });
+        saveDeployState();
+    }
+    const settle = () => {
         cloudDeploying.delete(serviceName);
-        cloudDeployErrors.set(serviceName, { error, log: logPath });
+        cloudDeployPids.delete(serviceName);
+        saveDeployState();
+        try { fs.closeSync(out); } catch (e) {}
     };
     child.on('error', err => {
-        try { fs.closeSync(out); } catch (e) {}
-        recordFailure(`could not start deploy script: ${err.message}`);
+        settle();
+        cloudDeployErrors.set(serviceName, { error: `could not start deploy script: ${err.message}`, log: logPath });
     });
     child.on('exit', code => {
-        cloudDeploying.delete(serviceName);
-        try { fs.closeSync(out); } catch (e) {}
+        settle();
         if (code === 0) return;
-        let tail = '';
-        try {
-            const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(l => l.trim());
-            tail = lines.slice(-2).join(' | ');
-        } catch (e) {}
-        if (!tail) {
-            tail = code === 127
-                ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
-                : `deploy script exited immediately (exit ${code}) - is gcloud installed and logged in?`;
-        }
-        recordFailure(tail);
+        const fallback = code === 127
+            ? 'gcloud not found - install the Google Cloud SDK and log in (gcloud auth login)'
+            : `deploy script exited immediately (exit ${code}) - is gcloud installed and logged in?`;
+        cloudDeployErrors.set(serviceName, { error: logTail(logPath, fallback), log: logPath });
     });
     child.unref();
     callback({ success: true, deploying: serviceName, log: logPath });
 }
+
+// Services mid-deletion: hidden from the session list right away, while
+// `gcloud run services delete` finishes in the background
+const cloudDeleting = new Set();
 
 function deleteCloudSession(name, callback) {
     const config = getCloudConfig();
@@ -262,8 +349,13 @@ function deleteCloudSession(name, callback) {
         return;
     }
     const { exec } = require('child_process');
+    cloudDeleting.add(name);
     exec(`gcloud run services delete ${name} --project ${config.project} --region ${config.region} --quiet`,
-        { timeout: 120000 }, (err) => callback({ success: !err }));
+        { timeout: 120000 }, (err) => {
+            cloudDeleting.delete(name);
+            if (err) cloudDeployErrors.set(name, { error: `delete failed: ${err.message.split('\n')[0]}`, log: '' });
+        });
+    callback({ success: true });
 }
 
 function getSessions() {
@@ -355,12 +447,6 @@ function createContainer(options) {
         if (options.volume) {
             args += ` -v ${options.volume}`;
         }
-        if (options.query) {
-            // Escape quotes in the query
-            const escapedQuery = options.query.replace(/"/g, '\\"');
-            args += ` -q "${escapedQuery}"`;
-        }
-
         const output = execSync(`${scriptPath} ${args}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 
         // Extract URL from output
@@ -418,9 +504,8 @@ function renderContent(sessions) {
                 <tr><td><code>./scripts/run.sh -s name</code></td><td>named session</td></tr>
                 <tr><td><code>./scripts/run.sh -n</code></td><td>skip opening browser</td></tr>
                 <tr><td><code>./scripts/run.sh -v ~/myproject:/home/agrun/myproject</code></td><td>mount volume</td></tr>
-                <tr><td><code>./scripts/run.sh -q "question"</code></td><td>start with query</td></tr>
             </table>
-            <p class="tip">tip: ${['in a session, press q or scroll to the bottom to exit scroll mode and resume typing', 'on this dashboard, press tab and enter to quickly create a new session', 'run node scripts/manage-env.js to manage environment variables'][Math.floor(Math.random() * 3)]}</p>
+            <p class="tip">tip: ${['in a session, press q or scroll to the bottom to exit scroll mode and resume typing', 'on this dashboard, press shift-tab or tab and enter to quickly create a new session', 'run node scripts/manage-env.js to manage environment variables'][Math.floor(Math.random() * 3)]}</p>
         </div>`;
     }
 
