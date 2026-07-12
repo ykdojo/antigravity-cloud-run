@@ -56,15 +56,17 @@ We recommend creating a separate GitHub account for this so you can scope its pe
 
 ## Dashboard
 
-`dashboard/server.js` is a small Node server (localhost:7680) with no state of its own: buttons call HTTP endpoints, and the server shells out to the same scripts and CLIs you would run by hand.
+`dashboard/server.js` is a small Node server (localhost:7680) with almost no state of its own: buttons call HTTP endpoints, and the server shells out to the same scripts and CLIs you would run by hand.
 
 - **Local sessions:** listed via `docker ps`, created via `run.sh`, auto-refreshed by streaming `docker events` to the page (SSE). Running sessions render as live terminal iframes.
 - **Cloud sessions:** listed via `gcloud run services list` (filtered by the `agrun=session` label; project/region come from `~/.config/agrun/cloud.json`, written by the deploy script). Create runs `deploy-cloud.sh`; delete removes the service but keeps its bucket. Connect makes the server spawn `gcloud run services proxy` on a local port and iframe it. A cold-start overlay covers the iframe until the server (watching the ttyd WebSocket) confirms agy has painted.
+- **Deploys:** `deploy-cloud.sh` runs detached, logging to `~/.config/agrun/deploy-<session>.log`. The status column shows the step the script is on (parsed from the log's `==>` lines, plus the current Dockerfile step during builds and the layer count during pushes). A failed deploy surfaces the log tail in the session list with a dismiss button. Each deploy's pid and log path are recorded in `~/.config/agrun/deploys.json` - the one piece of server state - so a restarted dashboard re-adopts a deploy that's still running and reports one that died while it was away.
 
 ## Cloud Run
 
 One Cloud Run service per session (`agrun-<session>`), deployed by `scripts/deploy-cloud.sh`.
 
+- **Image:** built with `--platform linux/amd64` (the only architecture Cloud Run runs) under a separate `agrun-amd64` tag, so the local `agrun` image stays native (arm64 on Apple Silicon). The first amd64 build on Apple Silicon runs emulated and is slow; later builds reuse the layer cache.
 - **Access:** IAM-gated (`--no-allow-unauthenticated`), reached via `gcloud run services proxy`, which gives the same localhost experience as local Docker.
 - **Auth:** the stored agy login (`~/.config/agrun/agy-oauth-token`, harvested from a local session) is pushed to Secret Manager (`agy-oauth-token`) and injected as the `AGY_OAUTH_TOKEN` env var; the entrypoint writes it into `~/.gemini` if the restored session state doesn't already have one.
 - **Persistence:** each session has its own GCS bucket holding a copy of `~/.gemini`. The instance's own disk is temporary, so the entrypoint restores from the bucket on boot, then syncs changes back every 60 seconds and on shutdown.
