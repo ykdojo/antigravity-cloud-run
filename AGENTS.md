@@ -68,7 +68,7 @@ Opens at http://localhost:7680. Shows all sessions with:
 Each session's data persists at `~/.config/agrun/sessions/<session-name>/` on the host, mounted to `/home/agrun/.gemini/` in the container.
 
 This includes:
-- **Auth:** agy's Google sign-in credentials (one-time login per session)
+- **Auth:** agy's Google sign-in credentials (log in once through any container via `docker exec -it agrun-<name> agy`; run.sh harvests the token to `~/.config/agrun/agy-oauth-token` and seeds it into new sessions)
 - **Conversations:** agy conversation history
 - **Settings:** `antigravity-cli/settings.json`, MCP config, statusline
 

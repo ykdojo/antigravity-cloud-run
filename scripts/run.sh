@@ -104,23 +104,42 @@ mkdir -p "$SECRETS_DIR"
 # First run only copies; later runs skip files that already exist.
 docker exec "$CONTAINER_NAME" bash -c 'cp -a --update=none /home/agrun/.gemini-defaults/. /home/agrun/.gemini/'
 
-# Reuse the host's agy login: copy the OAuth token file into the session if
-# the session doesn't have one yet (agy refreshes its own copy afterwards, so
-# never overwrite an existing session token with the host one).
-HOST_AGY_TOKEN="$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
-SESSION_AGY_TOKEN="$SESSIONS_DIR/$SESSION_NAME/antigravity-cli/antigravity-oauth-token"
-if [ -f "$HOST_AGY_TOKEN" ] && [ ! -f "$SESSION_AGY_TOKEN" ]; then
+# agy stores its login as a plain JSON file inside the session mount. The host
+# login can't be reused (newer agy keeps it in the macOS Keychain, not a file),
+# so the flow is: log in once inside any container, and run.sh harvests the
+# token file to $AGRUN_DIR for reuse by all later sessions (local and cloud).
+# Kept outside .secrets/ because .secrets files are exported as env vars.
+AGY_TOKEN_REL="antigravity-cli/antigravity-oauth-token"
+STORED_AGY_TOKEN="$AGRUN_DIR/agy-oauth-token"
+
+# Harvest: refresh the stored copy from the most recently updated session
+# (agy rotates its token, so prefer the newest one)
+NEWEST_SESSION_TOKEN=$(ls -t "$SESSIONS_DIR"/*/$AGY_TOKEN_REL 2>/dev/null | head -1)
+if [ -n "$NEWEST_SESSION_TOKEN" ]; then
+    if [ ! -f "$STORED_AGY_TOKEN" ] || [ "$NEWEST_SESSION_TOKEN" -nt "$STORED_AGY_TOKEN" ]; then
+        cp "$NEWEST_SESSION_TOKEN" "$STORED_AGY_TOKEN"
+        chmod 600 "$STORED_AGY_TOKEN"
+    fi
+fi
+
+# Seed: give this session the stored login if it has none yet (agy refreshes
+# its own copy afterwards, so never overwrite an existing session token).
+SESSION_AGY_TOKEN="$SESSIONS_DIR/$SESSION_NAME/$AGY_TOKEN_REL"
+if [ -f "$STORED_AGY_TOKEN" ] && [ ! -f "$SESSION_AGY_TOKEN" ]; then
     mkdir -p "$(dirname "$SESSION_AGY_TOKEN")"
-    cp "$HOST_AGY_TOKEN" "$SESSION_AGY_TOKEN"
+    cp "$STORED_AGY_TOKEN" "$SESSION_AGY_TOKEN"
     chmod 600 "$SESSION_AGY_TOKEN"
-    echo "Copied agy login from the host into this session."
+    echo "Seeded agy login from a previous session."
 elif [ ! -f "$SESSION_AGY_TOKEN" ]; then
     echo ""
     echo "=== Antigravity CLI setup ==="
     echo ""
-    echo "No agy login found on the host (~/.gemini/antigravity-cli/antigravity-oauth-token)."
-    echo "On first launch, agy will show a Google sign-in URL in the web terminal."
-    echo "Complete it once; credentials persist across container rebuilds."
+    echo "No agy login found. Log in once through this container:"
+    echo ""
+    echo "  docker exec -it $CONTAINER_NAME agy"
+    echo ""
+    echo "Complete the Google sign-in, quit agy, then re-run this script."
+    echo "The login is saved and reused for all future sessions (local and cloud)."
     echo ""
 fi
 
