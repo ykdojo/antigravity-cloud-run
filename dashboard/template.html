@@ -820,7 +820,7 @@
                         : '';
                     return `<tr class="${s.connected ? '' : 'inactive-row'}" data-cloud-name="${s.name}" data-cloud-url="${s.url || ''}">
                         <td>${s.displayName}${badge}</td>
-                        <td class="status" title="${esc(statusText)}">${status}</td>
+                        <td class="status">${status}</td>
                         <td class="volume">${connect}</td>
                         <td>${del}</td>
                     </tr>${errorRow}`;
