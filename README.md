@@ -65,6 +65,7 @@ Opens at http://localhost:7680 with two sections, local and cloud:
 - GitHub CLI with auto-configured git user
 - Playwright MCP with Chromium (preconfigured for agy)
 - Custom status line ([context bar](https://github.com/ykdojo/antigravity-cli-tips#tip-1-set-up-your-custom-status-line)), [shell aliases](#aliases)
+- `half-clone` skill - say "half-clone this conversation" and agy clones the later half into a new conversation you can `/resume` with half the context
 - ttyd web terminal + tmux
 
 ## Sensible defaults
@@ -149,7 +150,3 @@ gcloud run services proxy agrun-work --region us-central1 --port 7681
 ```
 
 Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle, but conversations resume with `agy -c` from the session's GCS backup.
-
-## Roadmap
-
-- Skills (in `setup/skills/`, not wired up for agy yet)

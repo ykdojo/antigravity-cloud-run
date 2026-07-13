@@ -96,6 +96,10 @@ RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 COPY --chown=agrun:agrun setup/AGENTS.md /home/agrun/.gemini-defaults/AGENTS.md
 COPY --chown=agrun:agrun setup/settings.json /home/agrun/.gemini-defaults/antigravity-cli/settings.json
 COPY --chown=agrun:agrun setup/mcp_config.json /home/agrun/.gemini-defaults/config/mcp_config.json
+# Skills (agy discovers them in ~/.gemini/config/skills/); half-clone bundles
+# the same script that works on the host
+COPY --chown=agrun:agrun setup/skills/half-clone /home/agrun/.gemini-defaults/config/skills/half-clone
+COPY --chown=agrun:agrun scripts/half-clone.sh /home/agrun/.gemini-defaults/config/skills/half-clone/scripts/half-clone.sh
 # Marks the first-run wizard (theme, ToS) as completed so fresh sessions go
 # straight to the prompt; telemetry stays opted out via settings.json
 COPY --chown=agrun:agrun setup/onboarding.json /home/agrun/.gemini-defaults/antigravity-cli/cache/onboarding.json
