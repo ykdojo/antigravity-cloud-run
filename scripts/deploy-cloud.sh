@@ -81,6 +81,46 @@ gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
 gcloud secrets add-iam-policy-binding "$SECRET" --project "$PROJECT" \
     --member "serviceAccount:$SA" --role roles/secretmanager.secretAccessor --quiet >/dev/null
 
+# Sync local secrets (~/.config/agrun/.secrets/) to Secret Manager: each file
+# becomes an env var in the service, same as local sessions. Synced secrets
+# are labeled agrun=secret so ones whose local file is gone can be deleted.
+LOCAL_SECRETS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agrun/.secrets"
+SECRET_REFS="AGY_OAUTH_TOKEN=${SECRET}:latest"
+echo "==> Syncing secrets..."
+if [ -d "$LOCAL_SECRETS_DIR" ]; then
+    for f in "$LOCAL_SECRETS_DIR"/*; do
+        [ -f "$f" ] || continue
+        NAME="$(basename "$f")"
+        if ! [[ "$NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            echo "    skipping $NAME (not a valid env var name)" >&2
+            continue
+        fi
+        SM_NAME="agrun-${NAME}"
+        # Strip trailing newlines: the value lands verbatim in an env var,
+        # where a trailing \n breaks token auth (e.g. gh)
+        VALUE="$(cat "$f")"
+        if gcloud secrets describe "$SM_NAME" --project "$PROJECT" >/dev/null 2>&1; then
+            if [ "$(gcloud secrets versions access latest --secret "$SM_NAME" --project "$PROJECT" 2>/dev/null | shasum)" != "$(printf '%s' "$VALUE" | shasum)" ]; then
+                printf '%s' "$VALUE" | gcloud secrets versions add "$SM_NAME" --project "$PROJECT" --data-file=- --quiet >/dev/null
+            fi
+        else
+            printf '%s' "$VALUE" | gcloud secrets create "$SM_NAME" --project "$PROJECT" --replication-policy automatic \
+                --labels agrun=secret --data-file=- --quiet
+        fi
+        gcloud secrets add-iam-policy-binding "$SM_NAME" --project "$PROJECT" \
+            --member "serviceAccount:$SA" --role roles/secretmanager.secretAccessor --quiet >/dev/null
+        SECRET_REFS="${SECRET_REFS},${NAME}=${SM_NAME}:latest"
+    done
+fi
+# Delete synced secrets whose local file no longer exists
+for SM_NAME in $(gcloud secrets list --project "$PROJECT" --filter 'labels.agrun=secret' --format 'value(name)'); do
+    NAME="${SM_NAME#agrun-}"
+    if [ ! -f "$LOCAL_SECRETS_DIR/$NAME" ]; then
+        echo "    removing stale secret $SM_NAME"
+        gcloud secrets delete "$SM_NAME" --project "$PROJECT" --quiet
+    fi
+done
+
 echo "==> Deploying $SERVICE..."
 gcloud run deploy "$SERVICE" \
     --project "$PROJECT" \
@@ -94,7 +134,7 @@ gcloud run deploy "$SERVICE" \
     --session-affinity \
     --timeout 3600 \
     --set-env-vars "SESSION_NAME=${SESSION_NAME}" \
-    --set-secrets "AGY_OAUTH_TOKEN=${SECRET}:latest" \
+    --set-secrets "$SECRET_REFS" \
     --add-volume "name=gemini,type=cloud-storage,bucket=${BUCKET}" \
     --add-volume-mount "volume=gemini,mount-path=/gcs-session" \
     --labels "agrun=session" \

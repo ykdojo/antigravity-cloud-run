@@ -94,7 +94,7 @@ Cloud sessions persist the same data to a per-session Cloud Storage bucket inste
 
 agy needs one Google sign-in, done inside a container - `run.sh` prints the `docker exec` command to run when a session has no login. After that, `run.sh` reuses the harvested token for every new session. (Note: be extra careful with this token because it seems to be granted the [full `cloud-platform` scope](https://github.com/google-antigravity/antigravity-cli/issues/592).)
 
-Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name.
+Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars on each run. The filename becomes the env var name. Cloud sessions get them too: `deploy-cloud.sh` syncs them to Secret Manager.
 
 | File | How to generate |
 |------|-----------------|

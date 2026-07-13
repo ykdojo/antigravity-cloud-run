@@ -494,7 +494,7 @@ function startContainer(name) {
 function renderContent(sessions) {
     if (sessions.length === 0) {
         return `<div class="empty">
-            <p>no sessions</p>
+            <p>no local sessions</p>
             <table class="help">
                 <tr><td><code>./scripts/run.sh</code></td><td>default session</td></tr>
                 <tr><td><code>./scripts/run.sh -s name</code></td><td>named session</td></tr>
