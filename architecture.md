@@ -36,8 +36,6 @@ All other secrets are stored on the host in `~/.config/agrun/.secrets/`. Each fi
 
 Scripts manage these for you: `npm run manage-env` (`scripts/manage-env.js`) lists, adds, and deletes keys interactively; `scripts/setup-slack.sh` walks through creating a Slack app and stores `SLACK_TOKEN`; and `run.sh` offers to set up `GH_TOKEN` on first run.
 
-Cloud sessions get the same env vars: `deploy-cloud.sh` syncs each `.secrets/` file to Secret Manager (labeled `agrun=secret`, trailing newlines stripped since the value lands verbatim in the env var) and references them with `--set-secrets`; secrets whose local file was removed are deleted on the next deploy.
-
 How env vars are passed:
 
 1. `run.sh` reads all files in `.secrets/` and writes them to `/home/agrun/.env` inside the container
