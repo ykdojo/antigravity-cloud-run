@@ -36,7 +36,7 @@ else
 fi
 
 CONV_ID="${1:-}" python3 - "$CONV_DIR" <<'PYEOF'
-import glob, os, sqlite3, sys, uuid
+import datetime, glob, os, re, sqlite3, sys, uuid
 
 conv_dir = sys.argv[1]
 conv_id = os.environ.get("CONV_ID", "")
@@ -88,11 +88,42 @@ for table in ("steps", "gen_metadata", "executor_metadata",
     dst_con.execute(f"UPDATE {table} SET idx = idx - ?", (cut,))
 dst_con.commit()
 kept = dst_con.execute("SELECT COUNT(*) FROM steps").fetchone()[0]
-dst_con.close()
 
 src_id = os.path.basename(src)[:-3]
+
+# Tag the clone in the /resume picker (annotations/<id>.pbtxt holds the title,
+# same file agy's f2-rename writes). Reuse the original's title if it has one,
+# else fall back to text pulled from the first kept user step.
+ann_dir = os.path.join(os.path.dirname(conv_dir), "annotations")
+base_title = ""
+src_ann = os.path.join(ann_dir, src_id + ".pbtxt")
+if os.path.isfile(src_ann):
+    m = re.search(r'title:"(.*?)"', open(src_ann).read())
+    if m:
+        base_title = m.group(1)
+if not base_title:
+    # First human-looking string in the first kept user step: skip uuids,
+    # paths, and tool names; strip the leading protobuf length byte
+    row = dst_con.execute(
+        "SELECT step_payload FROM steps WHERE step_type = 14 ORDER BY idx LIMIT 1"
+    ).fetchone()
+    for s in re.findall(rb"[\x20-\x7e]{8,}", (row and row[0]) or b""):
+        t = re.sub(r"^[^A-Za-z0-9]+", "", s.decode())
+        if re.fullmatch(r"[0-9a-f-]{20,}", t) or t.startswith("/") or t.endswith("(*)"):
+            continue
+        if " " in t:
+            base_title = t[:60]
+            break
+stamp = datetime.datetime.now().strftime("%b %d %H:%M")
+title = f"[HALF-CLONE {stamp}] {base_title}".strip().replace('"', "'")
+os.makedirs(ann_dir, exist_ok=True)
+with open(os.path.join(ann_dir, new_id + ".pbtxt"), "w") as f:
+    f.write(f'title:"{title}"')
+
+dst_con.close()
 print(f"Half-cloned {src_id}")
 print(f"  New conversation: {new_id}")
+print(f"  Title: {title}")
 print(f"  Kept {kept} of {total} steps (cut at step {cut}, a user-message boundary)")
 print(f"  Kept {len(user_steps) - len(user_steps) // 2} of {len(user_steps)} user turns")
 print()
