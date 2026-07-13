@@ -153,4 +153,4 @@ Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell
 
 ## Roadmap
 
-- Skills (in `setup/skills/`, not wired up for agy yet)
+- Skills: `half-clone` is baked into containers (agy discovers it in `~/.gemini/config/skills/`; say "half-clone this conversation"). The others in `setup/skills/` (gdoc, slack, yt-dlp) aren't wired up yet.
