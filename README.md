@@ -2,8 +2,6 @@
 
 The easiest way to run multiple Antigravity CLI (`agy`) sessions, each in its own container, with a dashboard to manage them all. Run them locally with Docker or in the cloud on Cloud Run, from the same dashboard.
 
-![The dashboard managing a local session and two cloud sessions side by side](assets/dashboard.png)
-
 See [architecture.md](architecture.md) for design details.
 
 ## Why a container?
