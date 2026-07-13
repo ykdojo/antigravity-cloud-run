@@ -99,24 +99,8 @@ Other tokens are stored in `~/.config/agrun/.secrets/` and injected as env vars 
 | File | How to generate |
 |------|-----------------|
 | `GH_TOKEN` | `gh auth token` or create a PAT at github.com/settings/tokens |
-| `GCP_FIREBASE_KEY_B64` | See [Firebase Hosting key](#firebase-hosting-key-optional) below |
 
 You can add any additional secrets by creating files in the `.secrets/` directory.
-
-### Firebase Hosting key (optional)
-
-Lets agents deploy static sites to Firebase Hosting (`<site>.web.app`) with `npx firebase-tools` - the baked AGENTS.md tells them how. The key is a service account scoped to hosting only, so a leak can't touch anything else in the project. One-time setup (Firebase must be enabled on the project once, via console.firebase.google.com):
-
-```bash
-gcloud iam service-accounts create agrun-firebase --project <project> --display-name "agrun Firebase deployer"
-gcloud projects add-iam-policy-binding <project> \
-    --member serviceAccount:agrun-firebase@<project>.iam.gserviceaccount.com \
-    --role roles/firebasehosting.admin --condition None
-gcloud iam service-accounts keys create /tmp/agrun-firebase-key.json \
-    --iam-account agrun-firebase@<project>.iam.gserviceaccount.com --project <project>
-base64 -i /tmp/agrun-firebase-key.json | tr -d '\n' > ~/.config/agrun/.secrets/GCP_FIREBASE_KEY_B64
-rm /tmp/agrun-firebase-key.json
-```
 
 ## Scripts
 
