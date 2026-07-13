@@ -111,6 +111,7 @@ You can add any additional secrets by creating files in the `.secrets/` director
 | `scripts/build.sh` | Build the Docker image and remove old container |
 | `scripts/run.sh` | Start/reuse container, inject auth, start ttyd. Use `-s name` for named sessions, `-v` for volumes, `-n` to skip opening browser. |
 | `scripts/deploy-cloud.sh` | Deploy a session to Cloud Run (scale-to-zero by default). `-s name` for the session, `-a` for always-on, `-P`/`-r` for project/region. |
+| `scripts/half-clone.sh` | Clone the later half of an agy conversation into a new one, to keep working with a smaller context. `-s name` for the session; defaults to the most recent conversation. The clone shows up in `/resume`. |
 | `scripts/manage-env.js` | Manage environment variables (list, add, delete) |
 | `dashboard/server.js` | Web dashboard for managing multiple sessions |
 
