@@ -44,7 +44,7 @@ sync_back() {
 SYNC_LOOP=$!
 
 TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
-ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
+ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!
 
 # Cloud Run sends SIGTERM with a short grace period: final sync, then exit

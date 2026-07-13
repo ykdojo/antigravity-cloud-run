@@ -201,7 +201,7 @@ TITLE="Antigravity on Cloud Run - ${SESSION_NAME}"
 
 # Start ttyd with web terminal
 docker exec -d "$CONTAINER_NAME" \
-    ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -p 7681 /home/agrun/ttyd-wrapper.sh
+    ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p 7681 /home/agrun/ttyd-wrapper.sh
 
 echo ""
 echo "Antigravity on Cloud Run is running at: http://localhost:${PORT}"
