@@ -57,7 +57,8 @@ TTYD=$!
 # time remains, and the 60s loop bounds what it could lose.
 on_term() {
     kill "$SYNC_LOOP" 2>/dev/null
-    tailscale --socket=/home/agrun/.tailscaled.sock logout 2>/dev/null
+    pgrep -x tailscaled >/dev/null && \
+        tailscale --socket=/home/agrun/.tailscaled.sock logout 2>/dev/null
     sync_back
     kill "$TTYD" 2>/dev/null
 }
