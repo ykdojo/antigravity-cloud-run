@@ -196,6 +196,13 @@ if [ -f "$SECRETS_DIR/GH_TOKEN" ]; then
     '
 fi
 
+# Join the tailnet for arbitrary-port access (no-op without TS_AUTHKEY).
+# docker exec doesn't see .secrets env vars, so source the container's .env
+# first. agrun-local- prefix keeps local nodes from colliding with cloud
+# nodes of the same session name in MagicDNS.
+docker exec "$CONTAINER_NAME" bash -c \
+    "source /home/agrun/.env 2>/dev/null; /home/agrun/start-tailscale.sh agrun-local-${SESSION_NAME}"
+
 # Set title based on session name
 TITLE="Antigravity on Cloud Run - ${SESSION_NAME}"
 

@@ -150,3 +150,32 @@ gcloud run services proxy agrun-work --region us-central1 --port 7681
 ```
 
 Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle, but conversations resume with `agy -c` from the session's GCS backup.
+
+## Reaching other ports (Tailscale)
+
+Cloud Run exposes exactly one port (ttyd), and local sessions only map the
+ports chosen at container creation - so a dev server started inside a session
+(say `localhost:3000`) is normally unreachable. If `TS_AUTHKEY` is set,
+every session instead joins your [Tailscale](https://tailscale.com) network
+as an inbound-only node, and any port inside it becomes reachable from your
+own machines, privately:
+
+```
+http://agrun-<session>:3000          # cloud session
+http://agrun-local-<session>:3000    # local session
+```
+
+One-time setup (see [tailscale-plan.md](tailscale-plan.md) for the full
+design and threat model):
+
+1. In the Tailscale admin console, define `tag:agrun` and grant your devices
+   access to it, never the reverse - the policy in the plan doc confines
+   containers to initiating nothing on the tailnet.
+2. Generate an auth key: reusable, ephemeral, pre-approved, tagged
+   `tag:agrun`.
+3. Save it: `npm run manage-env`, key name `TS_AUTHKEY`.
+
+Sessions run `tailscaled` in userspace mode (no privileges needed; works in
+plain Docker and Cloud Run gen2) with in-memory state - ephemeral nodes
+disappear when the instance dies. A leaked key only mints nodes that can
+reach nothing and be reached by nothing except your own devices.
