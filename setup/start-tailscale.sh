@@ -1,12 +1,11 @@
 #!/bin/bash
-# Join the tailnet as an inbound-only node (design: tailscale-plan.md).
-# No-op unless TS_AUTHKEY is set. Usage: start-tailscale.sh <node-hostname>
+# Join the tailnet as an inbound-only node; no-op unless TS_AUTHKEY is set.
+# Usage: start-tailscale.sh <node-hostname>
 #
-# Userspace mode: no TUN device or root needed, so the same script works in
-# plain Docker and Cloud Run gen2. Inbound connections from the tailnet are
-# proxied to the same port on localhost; outbound into the tailnet doesn't
-# work in this mode (and the ACL forbids it anyway). --state=mem: because
-# the key is ephemeral: nodes self-remove when the instance dies.
+# Userspace mode + in-memory state: no TUN device or root needed (works in
+# plain Docker and Cloud Run gen2), and nodes self-remove when the instance
+# dies. Inbound tailnet connections are proxied to the same local port;
+# outbound into the tailnet is impossible (and the ACL forbids it anyway).
 
 [ -n "$TS_AUTHKEY" ] || exit 0
 NODE_HOSTNAME="${1:?usage: start-tailscale.sh <node-hostname>}"
