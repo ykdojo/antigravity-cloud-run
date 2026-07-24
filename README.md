@@ -184,3 +184,6 @@ One-time setup:
 `tailscaled` runs in userspace mode with in-memory state: no privileges
 needed (works in plain Docker and Cloud Run gen2), nodes vanish when the
 instance dies, and a leaked key can only mint nodes that reach nothing.
+(Userspace mode: tailscaled does the WireGuard networking itself as an
+ordinary process, no kernel TUN device; in-memory state: the node identity
+lives only in RAM, so a stopped container leaves nothing behind.)
