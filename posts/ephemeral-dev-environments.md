@@ -1,4 +1,4 @@
-# Ephemeral dev environments for AI coding agents
+# How to spin up dev environments for your AI coding agents in the cloud
 
 **tl;dr:** I gave each AI coding agent its own container, so it can run with
 permissions switched off without ever touching my machine. The same image runs
