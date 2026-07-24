@@ -429,9 +429,8 @@ function getSessions() {
 
 function stopContainer(name) {
     try {
-        // Remove the ephemeral tailnet node right away; otherwise it lingers
-        // offline for hours and the next start gets a -1 suffixed name. The
-        // pgrep guard keeps this instant for sessions not using tailscale.
+        // Log out first: an ephemeral node that isn't logged out lingers for
+        // hours and the next start joins under a -1 suffixed name
         try {
             execSync(`docker exec ${name} sh -c 'pgrep -x tailscaled >/dev/null && tailscale --socket=/home/agrun/.tailscaled.sock logout'`, { encoding: 'utf8', timeout: 10000 });
         } catch (e) {}
@@ -483,9 +482,8 @@ function createContainer(options) {
 
 function startContainer(name) {
     try {
-        // Same path as session creation: run.sh owns all startup logic
-        // (docker start, env refresh, ttyd, tailnet join) - duplicating it
-        // here drifted twice (missing disableLeaveAlert, missing tailscale)
+        // run.sh owns session startup (docker start, env refresh, ttyd,
+        // tailnet join); creation goes through new.sh for the same reason
         const scriptPath = path.join(__dirname, '..', 'scripts', 'run.sh');
         const sessionName = name.replace('agrun-', '');
         const output = execSync(`${scriptPath} -s ${sessionName} -n`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
