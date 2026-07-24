@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { execSync, spawn } = require('child_process');
 
@@ -164,6 +165,16 @@ function probeTerminalReady(name, port) {
     attempt(20);
 }
 
+// Find a free local port starting at `start`. Orphaned proxies from a crashed
+// dashboard run may still hold ports in the 778x range; blindly reusing them
+// would iframe the wrong session's terminal.
+function findFreePort(start, cb) {
+    const srv = net.createServer();
+    srv.once('error', () => findFreePort(start + 1, cb));
+    srv.once('listening', () => srv.close(() => cb(start)));
+    srv.listen(start, '127.0.0.1');
+}
+
 function startCloudProxy(name, callback) {
     const existing = cloudProxies.get(name);
     if (existing) {
@@ -175,32 +186,34 @@ function startCloudProxy(name, callback) {
         callback({ success: false, error: 'no cloud config' });
         return;
     }
-    const port = nextProxyPort++;
-    const proc = spawn('gcloud', [
-        'run', 'services', 'proxy', name,
-        '--project', config.project, '--region', config.region, '--port', String(port)
-    ], { detached: false, stdio: 'ignore' });
-    cloudProxies.set(name, { port, proc });
-    cloudReady.delete(name);
-    proc.on('exit', () => { cloudProxies.delete(name); cloudReady.delete(name); });
-    // Poll until the proxy answers (auth handshake + cold start can take a bit)
-    const http = require('http');
-    let tries = 0;
-    const check = () => {
-        tries++;
-        const req = http.get({ host: '127.0.0.1', port, timeout: 2000 }, res => {
-            res.destroy();
-            probeTerminalReady(name, port); // watch for agy to finish painting
-            callback({ success: true, port, url: `http://localhost:${port}` });
-        });
-        req.on('error', () => {
-            if (!cloudProxies.has(name)) { callback({ success: false, error: 'proxy exited' }); return; }
-            if (tries >= 30) { callback({ success: true, port, url: `http://localhost:${port}`, slow: true }); return; }
-            setTimeout(check, 1000);
-        });
-        req.on('timeout', () => req.destroy());
-    };
-    setTimeout(check, 1000);
+    findFreePort(nextProxyPort, (port) => {
+        nextProxyPort = port + 1;
+        const proc = spawn('gcloud', [
+            'run', 'services', 'proxy', name,
+            '--project', config.project, '--region', config.region, '--port', String(port)
+        ], { detached: false, stdio: 'ignore' });
+        cloudProxies.set(name, { port, proc });
+        cloudReady.delete(name);
+        proc.on('exit', () => { cloudProxies.delete(name); cloudReady.delete(name); });
+        // Poll until the proxy answers (auth handshake + cold start can take a bit)
+        const http = require('http');
+        let tries = 0;
+        const check = () => {
+            tries++;
+            const req = http.get({ host: '127.0.0.1', port, timeout: 2000 }, res => {
+                res.destroy();
+                probeTerminalReady(name, port); // watch for agy to finish painting
+                callback({ success: true, port, url: `http://localhost:${port}` });
+            });
+            req.on('error', () => {
+                if (!cloudProxies.has(name)) { callback({ success: false, error: 'proxy exited' }); return; }
+                if (tries >= 30) { callback({ success: true, port, url: `http://localhost:${port}`, slow: true }); return; }
+                setTimeout(check, 1000);
+            });
+            req.on('timeout', () => req.destroy());
+        };
+        setTimeout(check, 1000);
+    });
 }
 
 function stopCloudProxy(name, callback) {
