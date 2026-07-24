@@ -53,36 +53,27 @@ MagicDNS then resolves it on every tailnet device, so a dev server is
 just `http://agrun-<session>:3000` from my machine. Full form:
 `agrun-<session>.<tailnet>.ts.net`.
 
-## ACL: inbound-only containers, one-way Macs
+## ACL: inbound-only containers
 
 Tailscale ACLs are a pure allow-list - anything not explicitly granted
 is denied. A tag by itself denies nothing (the default allow-all policy
 would still let tagged nodes reach everything); the confinement comes
 from never listing `tag:agrun` as a `src`.
 
-Both Macs belong to the same user, so `autogroup:member` can't tell them
-apart - directional rules pin them by tailnet IP (stable per device).
-Placeholder IPs below; real values live in the admin console.
-
 ```json
 {
   "tagOwners": { "tag:agrun": ["autogroup:admin"] },
-  "hosts": {
-    "host-mac":   "100.x.y.1",
-    "target-mac": "100.x.y.2"
-  },
   "acls": [
-    { "action": "accept", "src": ["host-mac"],   "dst": ["target-mac:*"] },
-    { "action": "accept", "src": ["host-mac"],   "dst": ["tag:agrun:*"] },
-    { "action": "accept", "src": ["target-mac"], "dst": ["tag:agrun:*"] }
+    { "action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:member:*"] },
+    { "action": "accept", "src": ["autogroup:member"], "dst": ["tag:agrun:*"] }
   ]
 }
 ```
 
 Resulting trust picture:
 
-- **host-mac**: the only node with full reach (-> target-mac, -> containers).
-- **target-mac**: can reach containers only; cannot initiate to host-mac.
+- **my devices** (`autogroup:member`): full access to each other and to
+  the containers, same as today.
 - **containers** (`tag:agrun`): can initiate nothing on the tailnet.
   Internet egress (git, npm, Google APIs) is unaffected - ACLs only
   govern tailnet traffic.
