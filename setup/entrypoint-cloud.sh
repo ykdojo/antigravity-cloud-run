@@ -51,10 +51,13 @@ TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
 ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!
 
-# Cloud Run sends SIGTERM with a short grace period: final sync, then exit
+# Cloud Run sends SIGTERM with a short grace period: final sync, then exit.
+# tailscale logout removes the ephemeral node immediately, freeing its name
+# for the next instance (otherwise stale nodes linger and cause -1 suffixes).
 on_term() {
     kill "$SYNC_LOOP" 2>/dev/null
     sync_back
+    tailscale --socket=/home/agrun/.tailscaled.sock logout 2>/dev/null
     kill "$TTYD" 2>/dev/null
 }
 trap on_term TERM INT
