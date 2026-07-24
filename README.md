@@ -187,3 +187,8 @@ instance dies, and a leaked key can only mint nodes that reach nothing.
 (Userspace mode: tailscaled does the WireGuard networking itself as an
 ordinary process, no kernel TUN device; in-memory state: the node identity
 lives only in RAM, so a stopped container leaves nothing behind.)
+
+## Experiments
+
+- [Collaboration vs the "wisdom of the crowd"](experiments/collaboration-vs-wisdom-of-the-crowd/):
+  AI coding agents collaborating in real time, running in this repo's containers.
