@@ -430,9 +430,10 @@ function getSessions() {
 function stopContainer(name) {
     try {
         // Remove the ephemeral tailnet node right away; otherwise it lingers
-        // offline for hours and the next start gets a -1 suffixed name
+        // offline for hours and the next start gets a -1 suffixed name. The
+        // pgrep guard keeps this instant for sessions not using tailscale.
         try {
-            execSync(`docker exec ${name} tailscale --socket=/home/agrun/.tailscaled.sock logout`, { encoding: 'utf8', timeout: 10000 });
+            execSync(`docker exec ${name} sh -c 'pgrep -x tailscaled >/dev/null && tailscale --socket=/home/agrun/.tailscaled.sock logout'`, { encoding: 'utf8', timeout: 10000 });
         } catch (e) {}
         execSync(`docker stop -t 1 ${name}`, { encoding: 'utf8' });
         return true;
