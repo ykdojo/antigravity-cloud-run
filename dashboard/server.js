@@ -429,6 +429,11 @@ function getSessions() {
 
 function stopContainer(name) {
     try {
+        // Remove the ephemeral tailnet node right away; otherwise it lingers
+        // offline for hours and the next start gets a -1 suffixed name
+        try {
+            execSync(`docker exec ${name} tailscale --socket=/home/agrun/.tailscaled.sock logout`, { encoding: 'utf8', timeout: 10000 });
+        } catch (e) {}
         execSync(`docker stop -t 1 ${name}`, { encoding: 'utf8' });
         return true;
     } catch (e) {
