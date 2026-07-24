@@ -43,6 +43,11 @@ sync_back() {
 ( while sleep 60; do sync_back; done ) &
 SYNC_LOOP=$!
 
+# Join the tailnet for arbitrary-port access (no-op without TS_AUTHKEY).
+# Must run BEFORE ttyd listens: Cloud Run gives full CPU only until the
+# container reports ready; a backgrounded join gets throttled and times out.
+/home/agrun/start-tailscale.sh "agrun-${SESSION_NAME:-cloud}"
+
 TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
 ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!

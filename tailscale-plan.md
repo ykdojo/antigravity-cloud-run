@@ -110,23 +110,25 @@ normal internet, not the tailnet - unaffected by this policy.
 
 Manual (admin console, once):
 
-- [ ] Install the ACL above (Access Controls tab); `tagOwners` must exist
-      before a tagged key can be created
-- [ ] Create the auth key (reusable, ephemeral, `tag:agrun`, short expiry)
-      and save it as `~/.config/agrun/.secrets/TS_AUTHKEY`
+- [x] Install the ACL above (JSON editor on the Access controls page);
+      `tagOwners` must exist before a tagged key can be created. Note:
+      the tailnet's policy file uses the `grants` syntax; the default
+      Tailscale SSH block was commented out (unused on a two-Mac tailnet).
+- [x] Create the auth key (reusable, ephemeral, pre-approved, `tag:agrun`,
+      90-day expiry) and save it as `~/.config/agrun/.secrets/TS_AUTHKEY`
+      (via `npm run manage-env`; done on both Macs)
 
 Code:
 
-- [ ] Dockerfile: install `tailscale` (apt repo, same pattern as gh CLI)
-- [ ] Shared `setup/start-tailscale.sh`: if `TS_AUTHKEY` is set, start
+- [x] Dockerfile: install `tailscale` (apt repo, same pattern as gh CLI)
+- [x] Shared `setup/start-tailscale.sh`: if `TS_AUTHKEY` is set, start
       `tailscaled --tun=userspace-networking --state=mem:` then
       `tailscale up --auth-key=$TS_AUTHKEY --hostname=<node name>`
-- [ ] `setup/entrypoint-cloud.sh`: call it with `agrun-${SESSION_NAME}`
-- [ ] Local startup path (`run.sh`'s in-container setup): call it with
-      `agrun-local-<session>`
-- [ ] `scripts/deploy-cloud.sh`: no injection change needed (`.secrets`
-      sync already delivers `TS_AUTHKEY`); just confirm gen2 execution
-      environment
-- [ ] README: usage section
-- [ ] Verify both directions: dev server reachable from both Macs;
-      container cannot reach either Mac's tailnet IP
+- [x] `setup/entrypoint-cloud.sh`: call it with `agrun-${SESSION_NAME}`
+- [x] Local startup path (`run.sh`): call it with `agrun-local-<session>`,
+      sourcing `/home/agrun/.env` first (docker exec doesn't see .secrets)
+- [x] `scripts/deploy-cloud.sh`: no injection change needed (`.secrets`
+      sync already delivers `TS_AUTHKEY`); gen2 already set
+- [x] README: usage section
+- [x] Verify both directions (2026-07-24, local + cloud): dev server
+      reachable from this Mac; container cannot reach the Mac (curl timeout)

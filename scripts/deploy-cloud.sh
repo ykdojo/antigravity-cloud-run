@@ -122,6 +122,10 @@ for SM_NAME in $(gcloud secrets list --project "$PROJECT" --filter 'labels.agrun
 done
 
 echo "==> Deploying $SERVICE..."
+# --no-cpu-throttling: tailscaled must process tailnet traffic even when no
+# HTTP request is in flight (dev servers stay reachable with the terminal
+# closed); billing becomes per-warm-instance instead of per-request, still
+# scale-to-zero
 gcloud run deploy "$SERVICE" \
     --project "$PROJECT" \
     --region "$REGION" \
@@ -129,6 +133,7 @@ gcloud run deploy "$SERVICE" \
     --no-allow-unauthenticated \
     --port 7681 \
     --execution-environment gen2 \
+    --no-cpu-throttling \
     --cpu 2 --memory 2Gi \
     --min-instances "$MIN_INSTANCES" --max-instances 1 \
     --session-affinity \
