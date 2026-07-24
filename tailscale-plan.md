@@ -1,9 +1,9 @@
 # Tailscale: reaching arbitrary ports inside the dev env sessions
 
-Design note - not implemented yet. Captures the plan and threat model for
-exposing dev servers running inside a session container (e.g.
-`localhost:3000`) to my own machines, privately. Applies to both cloud
-and local sessions - same mechanism, same key, same ACL.
+Design note, implemented and verified end-to-end 2026-07-24. Captures the
+plan and threat model for exposing dev servers running inside a session
+container (e.g. `localhost:3000`) to my own machines, privately. Applies
+to both cloud and local sessions - same mechanism, same key, same ACL.
 
 ## Problem
 
