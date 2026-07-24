@@ -112,16 +112,15 @@ if [ -d "$LOCAL_SECRETS_DIR" ]; then
         SECRET_REFS="${SECRET_REFS},${NAME}=${SM_NAME}:latest"
     done
 fi
-# Never delete: .secrets dirs on different machines hold different keys, so a
-# missing local file doesn't mean the secret is unwanted - deploying from the
-# wrong machine must not destroy another machine's synced secrets. Cloud
-# secrets with no local file here still get wired into the service; removal
-# is manual (gcloud secrets delete).
+# Delete synced secrets whose local file no longer exists. The cloud mirrors
+# the deploying machine's .secrets/, deletions included - so when deploying
+# from more than one machine, keep their .secrets/ folders identical, or a
+# deploy will delete the keys the other machine synced (bitten 2026-07-24).
 for SM_NAME in $(gcloud secrets list --project "$PROJECT" --filter 'labels.agrun=secret' --format 'value(name)'); do
     NAME="${SM_NAME#agrun-}"
     if [ ! -f "$LOCAL_SECRETS_DIR/$NAME" ]; then
-        echo "    keeping $SM_NAME (no local file on this machine; delete manually if truly unwanted)"
-        SECRET_REFS="${SECRET_REFS},${NAME}=${SM_NAME}:latest"
+        echo "    removing stale secret $SM_NAME"
+        gcloud secrets delete "$SM_NAME" --project "$PROJECT" --quiet
     fi
 done
 
