@@ -55,8 +55,7 @@ TTYD=$!
 # ephemeral node left behind lingers for hours), then sync with the rest.
 on_term() {
     kill "$SYNC_LOOP" 2>/dev/null
-    pgrep -x tailscaled >/dev/null && \
-        tailscale --socket=/home/agrun/.tailscaled.sock logout 2>/dev/null
+    pgrep -x tailscaled >/dev/null && tailscale logout 2>/dev/null
     sync_back
     kill "$TTYD" 2>/dev/null
 }
