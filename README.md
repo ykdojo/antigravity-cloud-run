@@ -150,3 +150,8 @@ gcloud run services proxy agrun-work --region us-central1 --port 7681
 ```
 
 Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell. Scale-to-zero sessions lose the live terminal on idle, but conversations resume with `agy -c` from the session's GCS backup.
+
+## Experiments
+
+- [Collaboration vs the "wisdom of the crowd"](experiments/collaboration-vs-wisdom-of-the-crowd/):
+  AI coding agents collaborating in real time, running in this repo's containers.
