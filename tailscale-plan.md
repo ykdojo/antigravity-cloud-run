@@ -76,14 +76,16 @@ MagicDNS resolves these on every tailnet device, so a dev server is just
 Tailscale ACLs are a pure allow-list - anything not explicitly granted
 is denied. A tag by itself denies nothing (the default allow-all policy
 would still let tagged nodes reach everything); the confinement comes
-from never listing `tag:agrun` as a `src`.
+from never listing `tag:agrun` as a `src`. In the current `grants`
+syntax (the tailnet's policy file uses it; `"ip": ["*"]` means all ports
+and protocols; the default Tailscale SSH block is kept as-is):
 
 ```json
 {
   "tagOwners": { "tag:agrun": ["autogroup:admin"] },
-  "acls": [
-    { "action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:member:*"] },
-    { "action": "accept", "src": ["autogroup:member"], "dst": ["tag:agrun:*"] }
+  "grants": [
+    { "src": ["autogroup:member"], "dst": ["autogroup:member"], "ip": ["*"] },
+    { "src": ["autogroup:member"], "dst": ["tag:agrun"], "ip": ["*"] }
   ]
 }
 ```
