@@ -10,10 +10,16 @@ Everything here is in [this repo](https://github.com/ykdojo/antigravity-cloud-ru
 ## Permission fatigue
 
 Coding agents ask before they act, and the prompts stop protecting you the
-moment you are numb to them.
+moment you are numb to them. Lydia from Anthropic
+[put it well](https://www.youtube.com/watch?v=6ERUGFurDHY&t=1444s) on Google
+Cloud Tech, in an episode I was also on:
 
-<!-- TODO: quote the Anthropic guest on permission fatigue from the Google
-     Cloud podcast episode, linked to that timestamp -->
+> If Claude asks you questions every time, you won't read them as much
+> anymore, because you're kind of, "you've asked me 100 times now, sure, just
+> go ahead." That's permission fatigue, which is also dangerous.
+
+She names the other end of the tradeoff too: skip permissions entirely and
+"if it's about to delete your root file, there's no going back."
 
 The fix is not to read the prompts more carefully. It is to make approval
 unnecessary by giving the agent somewhere it cannot do damage. A second
