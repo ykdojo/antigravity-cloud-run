@@ -51,10 +51,8 @@ TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
 ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!
 
-# Cloud Run sends SIGTERM with a ~10s grace period. Logout first - it's
-# fast and removes the ephemeral node immediately (stale nodes linger for
-# hours and cause -1 suffixed names); the slow gcsfuse sync gets whatever
-# time remains, and the 60s loop bounds what it could lose.
+# Cloud Run's SIGTERM grace period is ~10s: log out first (fast, and an
+# ephemeral node left behind lingers for hours), then sync with the rest.
 on_term() {
     kill "$SYNC_LOOP" 2>/dev/null
     pgrep -x tailscaled >/dev/null && \
