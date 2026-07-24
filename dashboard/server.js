@@ -477,30 +477,14 @@ function createContainer(options) {
 
 function startContainer(name) {
     try {
-        execSync(`docker start ${name}`, { encoding: 'utf8' });
-        // Start ttyd inside the container
-        const secretsDir = process.env.HOME + '/.config/agrun/.secrets';
-        let envFlags = '';
-        try {
-            const files = fs.readdirSync(secretsDir);
-            files.forEach(f => {
-                const val = fs.readFileSync(`${secretsDir}/${f}`, 'utf8').trim();
-                envFlags += ` -e ${f}=${val}`;
-            });
-        } catch (e) {}
-
+        // Same path as session creation: run.sh owns all startup logic
+        // (docker start, env refresh, ttyd, tailnet join) - duplicating it
+        // here drifted twice (missing disableLeaveAlert, missing tailscale)
+        const scriptPath = path.join(__dirname, '..', 'scripts', 'run.sh');
         const sessionName = name.replace('agrun-', '');
-        const title = `Antigravity on Cloud Run - ${sessionName}`;
-        execSync(`docker exec ${envFlags} -d ${name} ttyd -W -t titleFixed="${title}" -t fontSize=16 -p 7681 /home/agrun/ttyd-wrapper.sh`, { encoding: 'utf8' });
-        // Rejoin the tailnet (no-op without TS_AUTHKEY or if already joined)
-        execSync(`docker exec ${envFlags} -d ${name} /home/agrun/start-tailscale.sh agrun-local-${sessionName}`, { encoding: 'utf8' });
-
-        // Get the port
-        const portInfo = execSync(`docker ps --filter "name=^${name}$" --format "{{.Ports}}"`, { encoding: 'utf8' }).trim();
-        const portMatch = portInfo.match(/:(\d+)->/);
-        const port = portMatch ? portMatch[1] : '7681';
-
-        return { success: true, url: `http://localhost:${port}` };
+        const output = execSync(`${scriptPath} -s ${sessionName} -n`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+        const urlMatch = output.match(/http:\/\/localhost:\d+/);
+        return { success: true, url: urlMatch ? urlMatch[0] : null };
     } catch (e) {
         return { success: false };
     }
