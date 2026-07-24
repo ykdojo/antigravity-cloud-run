@@ -153,29 +153,34 @@ Never deploy with `--allow-unauthenticated` - the web terminal is a remote shell
 
 ## Reaching other ports (Tailscale)
 
-Cloud Run exposes exactly one port (ttyd), and local sessions only map the
-ports chosen at container creation - so a dev server started inside a session
-(say `localhost:3000`) is normally unreachable. If `TS_AUTHKEY` is set,
-every session instead joins your [Tailscale](https://tailscale.com) network
-as an inbound-only node, and any port inside it becomes reachable from your
-own machines, privately:
+Sessions expose only ttyd's port, so a dev server inside one (say
+`localhost:3000`) is normally unreachable. If `TS_AUTHKEY` is set, every
+session joins your [Tailscale](https://tailscale.com) network as an
+inbound-only node, and any port inside it is reachable from your own
+machines, privately:
 
 ```
 http://agrun-<session>:3000          # cloud session
 http://agrun-local-<session>:3000    # local session
 ```
 
-One-time setup (see [tailscale-plan.md](tailscale-plan.md) for the full
-design and threat model):
+One-time setup:
 
-1. In the Tailscale admin console, define `tag:agrun` and grant your devices
-   access to it, never the reverse - the policy in the plan doc confines
-   containers to initiating nothing on the tailnet.
-2. Generate an auth key: reusable, ephemeral, pre-approved, tagged
-   `tag:agrun`.
-3. Save it: `npm run manage-env`, key name `TS_AUTHKEY`.
+1. In the admin console's policy file, define the tag and grant your devices
+   access to it. Containers never appear as a `src`, so they can initiate
+   nothing on the tailnet:
 
-Sessions run `tailscaled` in userspace mode (no privileges needed; works in
-plain Docker and Cloud Run gen2) with in-memory state - ephemeral nodes
-disappear when the instance dies. A leaked key only mints nodes that can
-reach nothing and be reached by nothing except your own devices.
+   ```json
+   "tagOwners": { "tag:agrun": ["autogroup:admin"] },
+   "grants": [
+     { "src": ["autogroup:member"], "dst": ["autogroup:member"], "ip": ["*"] },
+     { "src": ["autogroup:member"], "dst": ["tag:agrun"], "ip": ["*"] }
+   ]
+   ```
+
+2. Generate an auth key (reusable, ephemeral, pre-approved, tag `tag:agrun`)
+   and save it: `npm run manage-env`, key name `TS_AUTHKEY`.
+
+`tailscaled` runs in userspace mode with in-memory state: no privileges
+needed (works in plain Docker and Cloud Run gen2), nodes vanish when the
+instance dies, and a leaked key can only mint nodes that reach nothing.

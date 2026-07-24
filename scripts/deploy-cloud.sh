@@ -112,10 +112,9 @@ if [ -d "$LOCAL_SECRETS_DIR" ]; then
         SECRET_REFS="${SECRET_REFS},${NAME}=${SM_NAME}:latest"
     done
 fi
-# Delete synced secrets whose local file no longer exists. The cloud mirrors
-# the deploying machine's .secrets/, deletions included - so when deploying
-# from more than one machine, keep their .secrets/ folders identical, or a
-# deploy will delete the keys the other machine synced (bitten 2026-07-24).
+# Delete synced secrets whose local file no longer exists: the cloud mirrors
+# the deploying machine's .secrets/, so keep multiple machines' folders
+# identical or deploy from the one holding the keys you want live.
 for SM_NAME in $(gcloud secrets list --project "$PROJECT" --filter 'labels.agrun=secret' --format 'value(name)'); do
     NAME="${SM_NAME#agrun-}"
     if [ ! -f "$LOCAL_SECRETS_DIR/$NAME" ]; then
@@ -125,10 +124,8 @@ for SM_NAME in $(gcloud secrets list --project "$PROJECT" --filter 'labels.agrun
 done
 
 echo "==> Deploying $SERVICE..."
-# --no-cpu-throttling: tailscaled must process tailnet traffic even when no
-# HTTP request is in flight (dev servers stay reachable with the terminal
-# closed); billing becomes per-warm-instance instead of per-request, still
-# scale-to-zero
+# --no-cpu-throttling: tailscaled must handle tailnet traffic even with no
+# HTTP request in flight; billed per warm instance, still scale-to-zero
 gcloud run deploy "$SERVICE" \
     --project "$PROJECT" \
     --region "$REGION" \

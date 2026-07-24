@@ -73,8 +73,6 @@ ENV NODE_PATH=/usr/lib/node_modules
 
 # === INSTALL Tailscale ===
 
-# Joined in userspace mode by start-tailscale.sh (no TUN device or root
-# needed), so the same setup works in plain Docker and Cloud Run gen2
 RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg && \
     curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list && \
     apt-get update && \
@@ -127,8 +125,7 @@ RUN cat /tmp/.bashrc >> /home/agrun/.bashrc && rm /tmp/.bashrc
 COPY --chown=agrun:agrun setup/ttyd-wrapper.sh /home/agrun/ttyd-wrapper.sh
 RUN chmod +x /home/agrun/ttyd-wrapper.sh
 
-# Tailnet join script, called from both startup paths (cloud entrypoint and
-# local run.sh); no-op unless TS_AUTHKEY is set
+# Tailnet join script (called by the cloud entrypoint and local run.sh)
 COPY --chown=agrun:agrun setup/start-tailscale.sh /home/agrun/start-tailscale.sh
 RUN chmod +x /home/agrun/start-tailscale.sh
 
