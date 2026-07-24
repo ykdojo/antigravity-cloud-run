@@ -10,12 +10,10 @@ Everything here is in [this repo](https://github.com/ykdojo/antigravity-cloud-ru
 ## Permission fatigue
 
 Coding agents ask before they act, and the prompts stop protecting you the
-moment you are numb to them. Anthropic found that
-[Claude Code users approve 93% of permission prompts](https://www.anthropic.com/engineering/claude-code-auto-mode),
-which "leads to approval fatigue, where people stop paying close attention to
-what they're approving."
+moment you are numb to them.
 
-<!-- TODO: link the Google Cloud podcast episode + timestamp where this came up -->
+<!-- TODO: quote the Anthropic guest on permission fatigue from the Google
+     Cloud podcast episode, linked to that timestamp -->
 
 The fix is not to read the prompts more carefully. It is to make approval
 unnecessary by giving the agent somewhere it cannot do damage. A second
