@@ -1,8 +1,9 @@
-# Tailscale: reaching arbitrary ports inside the Cloud Run dev env
+# Tailscale: reaching arbitrary ports inside the dev env sessions
 
 Design note - not implemented yet. Captures the plan and threat model for
-exposing dev servers running inside the container (e.g. `localhost:3000`)
-to my own machines, privately.
+exposing dev servers running inside a session container (e.g.
+`localhost:3000`) to my own machines, privately. Applies to both cloud
+and local sessions - same mechanism, same key, same ACL.
 
 ## Problem
 
@@ -17,6 +18,13 @@ from outside. Options considered:
    image changes and many dev servers misbehave behind a path prefix.
 3. **Tailscale** - container joins the tailnet; any port reachable
    privately from my machines. Chosen.
+
+Local sessions have a milder version of the same problem: extra ports
+would need Docker port mappings decided at container-creation time, and
+even then they only exist on this machine's localhost - the other Mac
+can't reach them. Rather than maintain a second mechanism, local
+containers join the tailnet the same way (userspace mode needs no TUN
+device or container privileges, so it runs in plain Docker too).
 
 ## How it works on Cloud Run
 
@@ -42,15 +50,25 @@ Generated in the Tailscale admin console (Settings -> Keys):
   ACL can confine (see below).
 - **Expiry**: pick the shortest workable window; bounds a leak.
 
-Stored in Secret Manager and injected as `TS_AUTHKEY`, same pattern as
-`AGY_OAUTH_TOKEN`. Never in this repo (it's public), never in build args
-(they persist in image layers).
+Saved as `~/.config/agrun/.secrets/TS_AUTHKEY`, which rides the existing
+secrets pipeline with no extra plumbing: `run.sh` injects it into local
+containers' `/home/agrun/.env`, and `deploy-cloud.sh` syncs it to Secret
+Manager and wires it into every cloud service as an env var. Never in
+this repo (it's public), never in build args (they persist in image
+layers).
 
 ## Naming
 
-The node hostname reuses the service name: `agrun-${SESSION_NAME}`.
-MagicDNS then resolves it on every tailnet device, so a dev server is
-just `http://agrun-<session>:3000` from my machine. Full form:
+The node hostname reuses the session name, with a prefix that tells the
+two environments apart so a local and a cloud session with the same name
+never collide in MagicDNS (Tailscale would silently rename one to
+`...-1`):
+
+- cloud: `agrun-<session>`
+- local: `agrun-local-<session>`
+
+MagicDNS resolves these on every tailnet device, so a dev server is just
+`http://agrun-<session>:3000` from my machine. Full form:
 `agrun-<session>.<tailnet>.ts.net`.
 
 ## ACL: inbound-only containers
@@ -88,11 +106,25 @@ normal internet, not the tailnet - unaffected by this policy.
 
 ## Implementation checklist
 
+Manual (admin console, once):
+
+- [ ] Install the ACL above (Access Controls tab); `tagOwners` must exist
+      before a tagged key can be created
+- [ ] Create the auth key (reusable, ephemeral, `tag:agrun`, short expiry)
+      and save it as `~/.config/agrun/.secrets/TS_AUTHKEY`
+
+Code:
+
 - [ ] Dockerfile: install `tailscale` (apt repo, same pattern as gh CLI)
-- [ ] `setup/entrypoint-cloud.sh`: if `TS_AUTHKEY` is set, start
+- [ ] Shared `setup/start-tailscale.sh`: if `TS_AUTHKEY` is set, start
       `tailscaled --tun=userspace-networking --state=mem:` then
-      `tailscale up --auth-key=$TS_AUTHKEY --hostname=agrun-${SESSION_NAME}`
-- [ ] `scripts/deploy-cloud.sh`: inject `TS_AUTHKEY` from Secret Manager;
-      confirm gen2 execution environment
-- [ ] Admin console (manual): create tagged ephemeral key, install ACL
+      `tailscale up --auth-key=$TS_AUTHKEY --hostname=<node name>`
+- [ ] `setup/entrypoint-cloud.sh`: call it with `agrun-${SESSION_NAME}`
+- [ ] Local startup path (`run.sh`'s in-container setup): call it with
+      `agrun-local-<session>`
+- [ ] `scripts/deploy-cloud.sh`: no injection change needed (`.secrets`
+      sync already delivers `TS_AUTHKEY`); just confirm gen2 execution
+      environment
 - [ ] README: usage section
+- [ ] Verify both directions: dev server reachable from both Macs;
+      container cannot reach either Mac's tailnet IP
