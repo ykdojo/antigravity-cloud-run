@@ -492,6 +492,8 @@ function startContainer(name) {
         const sessionName = name.replace('agrun-', '');
         const title = `Antigravity on Cloud Run - ${sessionName}`;
         execSync(`docker exec ${envFlags} -d ${name} ttyd -W -t titleFixed="${title}" -t fontSize=16 -p 7681 /home/agrun/ttyd-wrapper.sh`, { encoding: 'utf8' });
+        // Rejoin the tailnet (no-op without TS_AUTHKEY or if already joined)
+        execSync(`docker exec ${envFlags} -d ${name} /home/agrun/start-tailscale.sh agrun-local-${sessionName}`, { encoding: 'utf8' });
 
         // Get the port
         const portInfo = execSync(`docker ps --filter "name=^${name}$" --format "{{.Ports}}"`, { encoding: 'utf8' }).trim();
