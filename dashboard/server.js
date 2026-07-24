@@ -432,7 +432,7 @@ function stopContainer(name) {
         // Log out first: an ephemeral node that isn't logged out lingers for
         // hours and the next start joins under a -1 suffixed name
         try {
-            execSync(`docker exec ${name} sh -c 'pgrep -x tailscaled >/dev/null && tailscale --socket=/home/agrun/.tailscaled.sock logout'`, { encoding: 'utf8', timeout: 10000 });
+            execSync(`docker exec ${name} sh -c 'pgrep -x tailscaled >/dev/null && tailscale logout'`, { encoding: 'utf8', timeout: 10000 });
         } catch (e) {}
         execSync(`docker stop -t 1 ${name}`, { encoding: 'utf8' });
         return true;

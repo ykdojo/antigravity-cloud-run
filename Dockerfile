@@ -77,7 +77,11 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /us
     curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list && \
     apt-get update && \
     apt-get install -y tailscale && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    # tailscaled runs unprivileged, so give it the standard socket dir. That
+    # keeps plain `tailscale status` working, which is how the agent finds
+    # the tailnet name it was actually assigned.
+    mkdir -p /var/run/tailscale && chown agrun:agrun /var/run/tailscale
 
 # === INSTALL Antigravity CLI (agy) ===
 
