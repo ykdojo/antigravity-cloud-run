@@ -28,10 +28,12 @@ to be able to post by itself. That way, its blast radius is limited.
 
 ## What it gets access to
 
-The keys are the main thing it gets. They live in one folder on my machine, one
-file per environment variable, and there is a script for managing them, so you
-can add or delete keys without touching any config by hand. Whatever is in that
-folder is what the agent gets, and nothing else.
+You give it a list of environment variables, and they get injected into the
+container automatically every time you spin up a session, locally or in the
+cloud. They live in one folder on my machine, one file per variable, with a
+script for managing them, so you can add or delete keys without editing any
+config by hand. Whatever is in that folder is what the agent gets, and nothing
+else.
 
 I also built a dashboard to manage sessions, so I can spin one up, stop it, or
 delete it in a few seconds. That is the nice thing about containers. It is easy
