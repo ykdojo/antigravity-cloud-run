@@ -84,3 +84,21 @@ When the Tailscale key is present, the session also writes its own address into
 the agent's `AGENTS.md` on startup, so the agent knows where it lives and can
 hand you a working URL instead of `localhost`. If the key is not there, that
 section is left out entirely.
+
+## What is it good for?
+
+People ask me this, and the assumption behind the question is usually that I
+want something running 24/7. I don't, not really.
+
+What I do want is somewhere I can let an agent go free, for long running tasks
+and for tasks I would rather not run on my main machine. Research is the
+obvious one: going through a bunch of YouTube videos, or a bunch of Reddit
+threads. I don't necessarily want that running from my main machine.
+
+Building a feature on a side project is another one. I don't want it using my
+main machine's resources, so it runs in a container instead, either locally or
+in the cloud.
+
+The one I keep coming back to is letting it look through GitHub and put up a
+quick fix as a PR. It has its own account, so it sends the PR to me and I
+review it. That workflow has been pretty effective.
