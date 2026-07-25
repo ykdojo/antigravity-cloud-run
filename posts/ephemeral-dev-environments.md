@@ -28,8 +28,15 @@ to be able to post by itself. That way, its blast radius is limited.
 
 ## What it gets access to
 
-You give it a list of environment variables, and they get injected into the
-container automatically every time you spin up a session, locally or in the
+First, it gets my OAuth token, which is what lets it run on my usage quota.
+There is no API key option today, only the token file, and asking for one is an
+[open feature request](https://github.com/google-antigravity/antigravity-cli/issues/78).
+Until that ships, this is what I decided to go with: you log in once inside a
+container, and every session after that is seeded from that token, locally and
+in the cloud.
+
+You also give it a list of environment variables, and they get injected into
+the container automatically every time you spin up a session, locally or in the
 cloud.
 
 I also built a dashboard to manage sessions, so I can spin one up, stop it, or
