@@ -48,16 +48,8 @@ On Cloud Run it works pretty much the same way. The keys are synced to Secret
 Manager and wired into the service as environment variables, and conversation
 history goes to a Cloud Storage bucket, one per session, synced every 60
 seconds and again on shutdown. So a session you restart picks up where it left
-off, same as local.
-
-## Why the cloud and not just local containers
-
-Local containers are already enough to be safe. The cloud gives you more
-separation. It is a separate machine, so it does not affect whatever you are
-doing locally, and you do not have to worry about your own machine running
-while the job runs. Your laptop can be off and the job keeps going, as long as
-you deploy the session always-on, since sessions otherwise scale to zero when
-idle. You reconnect later to get the state of that job.
+off, same as local. Deployed always-on, it also keeps running whether or not my
+own machine is on, and I reconnect later to see where it got to.
 
 Cloud sessions are IAM-gated and never public. You reach one by running
 `gcloud run services proxy`, which opens a local port on your machine and
