@@ -26,28 +26,29 @@ gets a separate GitHub account and only the specific keys it needs. For
 example, you can give it read-only keys for your accounts if you don't want it
 to be able to post by itself. That way, its blast radius is limited.
 
-## The setup
+## What it gets access to
 
-One container, one agent, one conversation. Keep it simple like that. The agent
-is Google's [Antigravity CLI](https://antigravity.google/), or `agy`. Sessions
-are isolated from each other, so you can run several at once without
-interference. That is how I ran
-[the collaboration experiment](../experiments/collaboration-vs-wisdom-of-the-crowd/)
-with five agents in parallel.
+One container, one agent, one conversation. The agent is Google's
+[Antigravity CLI](https://antigravity.google/), or `agy`. Sessions are isolated
+from each other, so you can run several at once.
 
-Each session is a web terminal, ttyd plus tmux, so you can open it in a browser
-tab or watch it live in the dashboard above.
+The keys are the main thing it gets. They live in one folder on my machine, one
+file per environment variable, and there is a script for managing them, so you
+can add or delete keys without touching any config by hand. Whatever is in that
+folder is what the agent gets, and nothing else.
 
-Auth and conversation history persist per session. Locally they sit on my
-machine through a volume mount. In the cloud they go to a Cloud Storage bucket
-per session, synced every 60 seconds and again on shutdown, so restarting a
-session keeps its history.
+I also built a dashboard to manage sessions, so I can spin one up, stop it, or
+delete it in a few seconds. That is the nice thing about containers. It is easy
+to throw one away and start fresh.
 
-Secrets live in one folder on my machine, one file per environment variable, so
-an agent only ever sees the keys I put there. Local sessions get them as env
-vars, and deploying syncs them to Secret Manager. The cloud mirrors that folder, so if a key is gone locally, the next
-deploy deletes it from the cloud too. With two machines you want to deploy from
-the one that has the keys you want live.
+Conversation history carries across sessions, as long as you name the session
+the same way. Locally it lives on my machine through a volume mount.
+
+On Cloud Run it works pretty much the same way. The keys are synced to Secret
+Manager and wired into the service as environment variables, and conversation
+history goes to a Cloud Storage bucket, one per session, synced every 60
+seconds and again on shutdown. So a session you restart picks up where it left
+off, same as local.
 
 ## Why the cloud and not just local containers
 
@@ -58,15 +59,28 @@ while the job runs. Your laptop can be off and the job keeps going, as long as
 you deploy the session always-on, since sessions otherwise scale to zero when
 idle. You reconnect later to get the state of that job.
 
-Sessions are IAM-gated and never public. You reach one with
-`gcloud run services proxy`, which tunnels the web terminal to a local port, so
-you can talk to agy and use its shell.
+Cloud sessions are IAM-gated and never public. You reach one by running
+`gcloud run services proxy`, which opens a local port on your machine and
+tunnels it to the container, so you open `localhost` in your browser and talk
+to agy and its shell from there. The dashboard does this for you per session.
 
-## Reaching other ports
+## Adding it to your Tailscale network
 
-Cloud Run gives a service exactly one port, so a dev server running inside a
-session is not reachable from outside. Each session joins my private Tailscale
-network as an inbound-only node instead. A server on port 3000 is then at
-`http://<session-name>:3000` from my own machines, and the container cannot
-start connections back to them. Same idea as the rest of the setup: it gets
-exactly the access it needs and nothing in the other direction.
+This part is optional, but if you already use Tailscale I recommend it for
+this.
+
+The reason you need it is that Cloud Run only lets one port per service be
+reachable from outside, and that port is already taken by the web terminal. So
+if the agent starts a server inside the session and you want to look at it,
+there is no way in. Tailscale is the workaround.
+
+Each session joins my private network as its own node, so a server on port 3000
+is at `http://<session-name>:3000` from my laptop, or from any machine on my
+tailnet. Because of how the access rules are set up it only works one way: I
+can reach the container, and the container cannot reach my machines. Worth
+keeping in mind. It works the same way for local containers.
+
+When the Tailscale key is present, the session also writes its own address into
+the agent's `AGENTS.md` on startup, so the agent knows where it lives and can
+hand you a working URL instead of `localhost`. If the key is not there, that
+section is left out entirely.
