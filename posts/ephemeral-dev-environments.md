@@ -80,8 +80,8 @@ hand you a working URL instead of `localhost`.
 
 ## What is it good for?
 
-People ask me this, and the assumption behind the question is usually that I
-want something running 24/7. I don't, not really.
+People have asked me this, and the assumption behind the question is usually
+that I want something running 24/7. I don't, not really.
 
 What I do want is somewhere I can let an agent go free, for long running tasks
 and for tasks I would rather not run on my main machine. Research is one:
