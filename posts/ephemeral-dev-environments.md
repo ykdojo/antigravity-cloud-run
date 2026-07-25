@@ -28,10 +28,6 @@ to be able to post by itself. That way, its blast radius is limited.
 
 ## What it gets access to
 
-One container, one agent, one conversation. The agent is Google's
-[Antigravity CLI](https://antigravity.google/), or `agy`. Sessions are isolated
-from each other, so you can run several at once.
-
 The keys are the main thing it gets. They live in one folder on my machine, one
 file per environment variable, and there is a script for managing them, so you
 can add or delete keys without touching any config by hand. Whatever is in that
@@ -54,7 +50,7 @@ own machine is on, and I reconnect later to see where it got to.
 Cloud sessions are IAM-gated and never public. You reach one by running
 `gcloud run services proxy`, which opens a local port on your machine and
 tunnels it to the container, so you open `localhost` in your browser and talk
-to agy and its shell from there. The dashboard does this for you per session.
+to the agent and its shell from there. The dashboard does this for you per session.
 
 ## Adding it to your Tailscale network
 
