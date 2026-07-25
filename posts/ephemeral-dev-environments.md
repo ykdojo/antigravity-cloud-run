@@ -84,9 +84,8 @@ People ask me this, and the assumption behind the question is usually that I
 want something running 24/7. I don't, not really.
 
 What I do want is somewhere I can let an agent go free, for long running tasks
-and for tasks I would rather not run on my main machine. Research is the
-obvious one: going through a bunch of YouTube videos, or a bunch of Reddit
-threads. I don't necessarily want that running from my main machine.
+and for tasks I would rather not run on my main machine. Research is one:
+going through a bunch of YouTube videos, or a bunch of Reddit threads. I don't necessarily want that running from my main machine.
 
 Building a feature on a side project is another one. I don't want it using my
 main machine's resources, so it runs in a container instead, either locally or
