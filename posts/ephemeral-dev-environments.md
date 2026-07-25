@@ -8,6 +8,8 @@ and the same image deploys to Cloud Run when I want it off my laptop.
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
+**Source:** [github.com/ykdojo/antigravity-cloud-run](https://github.com/ykdojo/antigravity-cloud-run)
+
 ## Avoiding permission fatigue
 
 With Antigravity CLI you have a few options. You can approve each request
