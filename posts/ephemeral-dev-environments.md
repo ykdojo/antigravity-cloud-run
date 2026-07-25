@@ -1,4 +1,4 @@
-# Spinning up containerized dev environments for AI agents in seconds
+# How I set up containerized dev environments you can spin up in seconds for Antigravity CLI
 
 **tl;dr:** I gave each AI coding agent its own container, so it can run with
 permissions switched off without ever touching my machine. A local session
