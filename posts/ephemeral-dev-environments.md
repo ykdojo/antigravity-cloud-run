@@ -5,8 +5,6 @@ agents with limited, controlled access. They only get the credentials and
 network access they need, so they can keep working without asking for
 permission, and without compromising security. A local session starts in
 seconds, and the same image deploys to Cloud Run when I want it off my laptop.
-Both are managed from one dashboard. Everything here is in
-[this repo](https://github.com/ykdojo/antigravity-cloud-run).
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
