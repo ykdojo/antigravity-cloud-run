@@ -34,8 +34,7 @@ file. Unless and until the
 [feature request](https://github.com/google-antigravity/antigravity-cli/issues/78)
 for that is addressed, this is what I decided to go with. You log in once inside
 a container, and every session after that is seeded from that token, locally and
-in the cloud. You cannot reuse the login from your own machine, because on
-macOS Antigravity keeps it in the Keychain rather than in a file.
+in the cloud.
 
 You also give it a list of environment variables, and they get injected into
 the container automatically every time you spin up a session, locally or in the
