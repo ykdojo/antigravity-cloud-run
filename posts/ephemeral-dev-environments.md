@@ -8,7 +8,7 @@ seconds, and the same image deploys to Cloud Run when I want it off my laptop.
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
-## Limiting the blast radius
+## Avoiding permission fatigue
 
 With Antigravity CLI you have a few options. You can approve each request
 manually. You can put it in `accept-edits` mode so it approves certain things
