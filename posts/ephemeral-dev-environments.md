@@ -1,7 +1,7 @@
 # How I set up containerized dev environments you can spin up in seconds for Antigravity CLI
 
 **tl;dr:** I set up a way to spin up containerized dev environments for AI
-agents with limited, controlled access. I give them only the credentials and
+agents with limited, controlled access. They only get the credentials and
 network access they need, so they can keep working without asking for
 permission, and without compromising security. A local session starts in
 seconds, and the same image deploys to Cloud Run when I want it off my laptop.
