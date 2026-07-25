@@ -76,8 +76,7 @@ can reach the container, and the container cannot reach my machines.
 
 When the Tailscale key is present, the session also writes its own address into
 the agent's `AGENTS.md` on startup, so the agent knows where it lives and can
-hand you a working URL instead of `localhost`. If the key is not there, that
-section is left out entirely.
+hand you a working URL instead of `localhost`.
 
 ## What is it good for?
 
