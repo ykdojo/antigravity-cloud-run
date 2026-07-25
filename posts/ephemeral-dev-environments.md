@@ -31,7 +31,8 @@ to be able to post by itself. That way, its blast radius is limited.
 First, it gets my OAuth token for Antigravity, so that it's able to use my
 subscription's usage quota. There is no API key option today, only that token
 file. Until this feature is implemented
-([related request](https://github.com/google-antigravity/antigravity-cli/issues/78)),
+([related](https://github.com/google-antigravity/antigravity-cli/issues/78)
+[requests](https://github.com/google-antigravity/antigravity-cli/issues/592)),
 this is what I decided to go with. You log in once inside
 a container, and every session after that is seeded from that token, locally and
 in the cloud.
