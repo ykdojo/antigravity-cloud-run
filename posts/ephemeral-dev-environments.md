@@ -1,9 +1,9 @@
 # How I set up containerized dev environments you can spin up in seconds for Antigravity CLI
 
-**tl;dr:** I gave each AI coding agent its own container with access to only
-the things it needs to get the job done: a separate GitHub account, only the
-keys I hand it, and a network connection that works one way. That is what makes
-it safe to run with permissions switched off. A local session starts in
+**tl;dr:** I set up a way to spin up containerized dev environments for AI
+agents with limited, controlled access. I give them only the credentials and
+network access they need, so they can keep working without asking for
+permission, and without compromising security. A local session starts in
 seconds, and the same image deploys to Cloud Run when I want it off my laptop.
 Both are managed from one dashboard. Everything here is in
 [this repo](https://github.com/ykdojo/antigravity-cloud-run).
