@@ -28,7 +28,8 @@ to be able to post by itself. That way, its blast radius is limited.
 
 ## What it gets access to
 
-First, it gets my OAuth token, which is what lets it run on my usage quota.
+First, it gets my OAuth token for Antigravity, which is what lets it run on my
+subscription's usage quota.
 There is no API key option today, only the token file, and asking for one is an
 [open feature request](https://github.com/google-antigravity/antigravity-cli/issues/78).
 Until that ships, this is what I decided to go with: you log in once inside a
