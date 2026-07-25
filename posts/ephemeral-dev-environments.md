@@ -52,8 +52,7 @@ On Cloud Run it works pretty much the same way. The keys are synced to Secret
 Manager and wired into the service as environment variables, and conversation
 history goes to a Cloud Storage bucket, one per session, synced every 60
 seconds and again on shutdown. So a session you restart picks up where it left
-off, same as local. Deployed always-on, it also keeps running whether or not my
-own machine is on, and I reconnect later to see where it got to.
+off, same as local.
 
 Cloud sessions are IAM-gated and never public. You reach one by running
 `gcloud run services proxy`, which opens a local port on your machine and
