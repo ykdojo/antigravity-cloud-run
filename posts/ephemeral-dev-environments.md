@@ -72,8 +72,7 @@ there is no way in. Tailscale is the workaround.
 Each session joins my private network as its own node, so a server on port 3000
 is at `http://<session-name>:3000` from my laptop, or from any machine on my
 tailnet. Because of how the access rules are set up it only works one way: I
-can reach the container, and the container cannot reach my machines. Worth
-keeping in mind. It works the same way for local containers.
+can reach the container, and the container cannot reach my machines.
 
 When the Tailscale key is present, the session also writes its own address into
 the agent's `AGENTS.md` on startup, so the agent knows where it lives and can
