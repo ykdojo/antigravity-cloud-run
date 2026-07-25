@@ -87,9 +87,9 @@ What I do want is somewhere I can let an agent go free, for long running tasks
 and for tasks I would rather not run on my main machine. Research is one:
 going through a bunch of YouTube videos, or a bunch of Reddit threads. I don't necessarily want that running from my main machine.
 
-Building a feature on a side project is another one. I don't want it using my
-main machine's resources, so it runs in a container instead, either locally or
-in the cloud.
+Building a feature on a side project is another one. I don't necessarily want
+it using my main machine's resources, so it runs in a container instead, either
+locally or in the cloud.
 
 The one I keep coming back to is letting it look through GitHub and put up a
 quick fix as a PR. It has its own account, so it sends the PR to me and I
