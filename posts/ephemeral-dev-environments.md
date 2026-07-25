@@ -22,8 +22,9 @@ into.
 
 So I decided to put it in a container instead, so I can run it with
 `--dangerously-skip-permissions` without approving every single request. It
-gets a separate GitHub account and only the specific keys it needs. My Slack
-key is read-only, for example. Its blast radius is limited.
+gets a separate GitHub account and only the specific keys it needs. For
+example, you can give it read-only keys for your accounts if you don't want it
+to post by itself. Its blast radius is limited.
 
 ## The setup
 
