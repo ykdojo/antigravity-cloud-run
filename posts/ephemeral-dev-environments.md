@@ -8,25 +8,22 @@ seconds, and the same image deploys to Cloud Run when I want it off my laptop.
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
-## Permission fatigue
+## Limiting the blast radius
 
-Permission fatigue is a real thing. Lydia from Anthropic
-[described it](https://www.youtube.com/watch?v=6ERUGFurDHY&t=1444s) on Google
-Cloud Tech, in an episode I was on too:
+With Antigravity CLI you have a few options. You can approve each request
+manually. You can put it in `accept-edits` mode so it approves certain things
+on its own. Or you can run it with `--dangerously-skip-permissions` and not
+approve anything.
 
-> If Claude asks you questions every time, you won't read them as much
-> anymore, because you're kind of, "you've asked me 100 times now, sure, just
-> go ahead." That's permission fatigue, which is also dangerous.
+The third option is convenient, but it is risky. Running on your main machine
+with your credentials, it could do a lot of damage, not just to your local
+environment but to your accounts: GitHub, email, whatever else you are signed
+into.
 
-One way to fix it is an isolated environment. That can be a separate computer,
-but a container is more convenient. It is extremely hard to escape a container
-into the host machine, and everything is contained, which is in the name.
-
-The part that matters more than the isolation itself is what you decide to put
-inside. The agent only gets the minimum it needs to get the job done: a
-separate GitHub account, which is what I like to do, the specific keys I hand
-it, and nothing else. Then you can let it run on its own with
-`--dangerously-skip-permissions`.
+So I decided to put it in a container instead, so I can run it with
+`--dangerously-skip-permissions` without approving every single request. It
+gets a separate GitHub account and only the specific keys it needs. My Slack
+key is read-only, for example. Its blast radius is limited.
 
 ## The setup
 
