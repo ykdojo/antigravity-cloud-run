@@ -3,8 +3,8 @@
 **tl;dr:** I set up a way to spin up containerized dev environments for AI
 agents with limited, controlled access. They only get the credentials and
 network access they need, so they can keep working without asking for
-permission, and without compromising security. A local session starts in
-seconds, and the same image deploys to Cloud Run when I want it off my laptop.
+permission, and without compromising security. Local sessions start in seconds,
+and the same image deploys to Cloud Run when I want it off my laptop.
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
