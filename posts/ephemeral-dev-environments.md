@@ -1,11 +1,10 @@
 # Spinning up containerized dev environments for AI agents in seconds
 
-**tl;dr:** I gave each AI coding agent, Google's
-[Antigravity CLI](https://antigravity.google/) in my case, its own container,
-so it can run with permissions switched off without ever touching my machine.
-A local session starts in seconds, and the same image deploys to Cloud Run when
-I want it off my laptop. Both are managed from one dashboard. Everything here
-is in [this repo](https://github.com/ykdojo/antigravity-cloud-run).
+**tl;dr:** I gave each AI coding agent its own container, so it can run with
+permissions switched off without ever touching my machine. A local session
+starts in seconds, and the same image deploys to Cloud Run when I want it off
+my laptop. Both are managed from one dashboard. Everything here is in
+[this repo](https://github.com/ykdojo/antigravity-cloud-run).
 
 ![The dashboard running five cloud sessions in parallel, with live terminals](../assets/dashboard.png)
 
@@ -29,7 +28,8 @@ like to do. Then you can let it run on its own with
 
 ## The setup
 
-One container, one agent, one conversation. Keep it simple like that. Sessions
+One container, one agent, one conversation. Keep it simple like that. The agent
+is Google's [Antigravity CLI](https://antigravity.google/), or `agy`. Sessions
 are isolated from each other, so you can run several at once without
 interference. That is how I ran
 [the collaboration experiment](../experiments/collaboration-vs-wisdom-of-the-crowd/)
