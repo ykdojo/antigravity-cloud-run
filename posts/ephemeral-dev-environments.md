@@ -12,8 +12,8 @@ and the same image deploys to Cloud Run when I want it off my laptop.
 
 With Antigravity CLI you have a few options. You can approve each request
 manually. You can put it in `accept-edits` mode so it approves certain things
-on its own. Or you can run it with `--dangerously-skip-permissions` and not
-approve anything.
+on its own. Or you can run it with `--dangerously-skip-permissions` and skip
+approval entirely.
 
 The third option is convenient, but it is risky. Running on your main machine
 with your credentials, it could do a lot of damage, not just to your local
