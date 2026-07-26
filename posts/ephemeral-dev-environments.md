@@ -12,10 +12,10 @@ and the same image deploys to Cloud Run when I want it off my laptop.
 
 ## Avoiding permission fatigue
 
-With Antigravity CLI you have a few options. You can approve each request
-manually. You can configure it in such a way that certain types of requests are
-accepted automatically. Or you can run it with `--dangerously-skip-permissions`
-and skip approval entirely.
+With coding agents like Antigravity CLI you have a few options. You can approve
+each request manually. You can configure it in such a way that certain types of
+requests are accepted automatically. Or you can run it with
+`--dangerously-skip-permissions` and skip approval entirely.
 
 The third option is convenient, but it is risky. Running on your main machine
 with your credentials, it could do a lot of damage, not just to your local
