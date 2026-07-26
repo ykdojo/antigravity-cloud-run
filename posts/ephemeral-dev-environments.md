@@ -1,4 +1,4 @@
-# How I set up containerized dev environments you can spin up in seconds
+# Setting up containerized dev environments you can spin up in seconds
 
 **tl;dr:** I set up a way to spin up containerized dev environments for AI
 agents with limited, controlled access. They only get the credentials and
