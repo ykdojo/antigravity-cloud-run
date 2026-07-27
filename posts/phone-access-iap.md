@@ -111,40 +111,15 @@ returns a 302 to accounts.google.com. On the phone: open
 parameters, and fontSize is the one that matters on mobile), pick your Google
 account, and the terminal loads.
 
-## What IAP breaks, and the dead end I hit trying to fix it
+## What IAP breaks
 
 One thing stops working: `gcloud run services proxy`, which is how my
-dashboard embeds cloud terminals locally. The proxy isn't a tunnel. It
-forwards requests to the same public URL with an identity token attached, and
-IAP rejects that token: it was minted for the service URL as audience, and IAP
-wants its own OAuth client ID as the audience. User accounts can't mint that
-kind of token with plain gcloud, so there's no flag that fixes it.
+dashboard embeds cloud terminals locally. IAP rejects the proxy's tokens, and
+on a no-organization project there's no clean way around it.
 
-IAP has a setting for exactly this:
-`programmatic_clients`, an allowlist of extra OAuth client IDs whose tokens
-IAP will accept. Allowlisting gcloud's own client ID would have made the proxy
-work unchanged. The API refused: the allowlisted client must be in the same
-organization as the resource, and a no-org project can't satisfy that. If you
-have an org, that's your escape hatch; without one, it's a dead end.
-
-So it's a per-session choice, and I made it a flag. My deploy script takes
-`-i` to bring a session up phone-ready (IAP plus the IAM grants), and the
-dashboard reads the `run.googleapis.com/iap-enabled` annotation on each
-service and renders accordingly: normal sessions get the embedded terminal
-via the local proxy, IAP sessions get an "open in browser" link. Default is
-no IAP, because the embedded local experience is still the main one.
+So it's a per-session choice, and I made it a flag: my deploy script takes
+`-i` to bring a session up with IAP, and the dashboard shows those sessions
+as an "open in browser" link instead of an embedded terminal. Default is no
+IAP.
 
 ![The dashboard: an IAP session gets a badge and an "open in browser" link instead of an embedded terminal](../assets/phone-access-dashboard-iap.jpg)
-
-## Cost
-
-- IAP path: $0 idle, normal request-time billing while a tab is open.
-- Tailscale fallback with a pinned instance: roughly $0.15/hr at 2 CPU / 2Gi,
-  so about $110/month if you leave it pinned. That's the bill IAP avoids.
-
-## What's next
-
-Phone keyboards have no Esc, Ctrl, Tab, or arrow keys, and the agent's menus
-want arrows. The plan is a small same-origin wrapper page that serves a key
-toolbar above the terminal iframe. That needs the wrapper and ttyd on one
-origin, so they'll share a port behind a tiny proxy inside the container.
