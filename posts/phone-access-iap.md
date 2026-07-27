@@ -1,4 +1,4 @@
-# How I drive a cloud coding agent from my phone (no app installation necessary)
+# How I drive a cloud coding agent from my phone through the browser
 
 **tl;dr:** I put Google's Identity-Aware Proxy in front of a Cloud Run service
 running a coding agent in a web terminal. Now I open a URL on my phone, sign in
