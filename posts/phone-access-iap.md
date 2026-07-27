@@ -142,13 +142,6 @@ task, and watch it run. A couple of rough edges I'm hoping to address later.
 Scrolling isn't great. It's a terminal in a browser tab, so scrolling back
 through output on a touchscreen is fiddlier than it should be.
 
-Font size is the other one. ttyd only accepts the terminal's font size
-server-side, and its page ships without a `<meta name="viewport">` tag, so
-mobile browsers lay it out at a desktop width and scale the whole thing down.
-Injecting the tag fixed it in every browser I tested except the one that
-matters most, Chrome on my iPhone, where it still comes out smaller than I
-set it. Every other browser respects the setting, so I'm not sure what's
-different there yet.
-
-Phone keyboards are also missing Esc, Ctrl, Tab and arrow keys, which the
-agent's menus want. A small key toolbar above the terminal would solve that.
+Font size is the other one. I can't get it to set properly on the phone. It
+works in every other browser I tried, so I'm not sure what's different there
+yet.
