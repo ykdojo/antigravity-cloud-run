@@ -105,8 +105,8 @@ client handed to IAP. Four steps, mostly console clicks:
 
    Delete the yaml afterwards. IAP stores the secret as a hash.
 
-The change takes effect in seconds: the same curl that returned 502 now
-returns a 302 to accounts.google.com. On the phone: open
+The change takes effect in seconds: the 502 is gone, and the service URL
+redirects to a Google sign-in instead. On the phone: open
 `https://SERVICE-URL/?fontSize=16` (ttyd accepts xterm options as query
 parameters, and fontSize is the one that matters on mobile), pick your Google
 account, and the terminal loads.
