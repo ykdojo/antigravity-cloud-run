@@ -1,23 +1,35 @@
 #!/bin/bash
 # Deploy a session to Cloud Run: one service per session, IAM-gated.
-# Usage: deploy-cloud.sh [-s session] [-r region] [-P project] [-a]
+# Usage: deploy-cloud.sh [-s session] [-r region] [-P project] [-a] [-i]
 #   -a  always-on (min-instances=1, costs money 24/7; default: scale to zero)
+#   -i  IAP (phone/browser access via the run.app URL; the dashboard's local
+#       proxy does NOT work for IAP sessions - see docs/phone-access.md).
+#       Requires the project's one-time IAP OAuth setup (branding, custom
+#       client in IAP settings, test users). Default: no IAP, local proxy.
+#   -f  terminal font size (ttyd -t fontSize), default 16. On a 390px-wide
+#       phone that's ~40 columns; drop to 12 for ~53 if you want more width.
 set -euo pipefail
 
 SESSION_NAME="default"
 REGION="us-central1"
 PROJECT="$(gcloud config get-value project 2>/dev/null)"
 MIN_INSTANCES=0
+IAP=0
+FONT_SIZE=""
 
-while getopts "s:r:P:a" opt; do
+while getopts "s:r:P:aif:" opt; do
     case $opt in
         s) SESSION_NAME="$OPTARG" ;;
         r) REGION="$OPTARG" ;;
         P) PROJECT="$OPTARG" ;;
         a) MIN_INSTANCES=1 ;;
-        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-a]"; exit 1 ;;
+        i) IAP=1 ;;
+        f) FONT_SIZE="$OPTARG" ;;
+        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-a] [-i] [-f fontsize]"; exit 1 ;;
     esac
 done
+
+[ -z "$FONT_SIZE" ] && FONT_SIZE=16
 
 if [ -z "$PROJECT" ]; then
     echo "Error: no GCP project. Set one with 'gcloud config set project ...' or pass -P." >&2
@@ -126,6 +138,8 @@ done
 echo "==> Deploying $SERVICE..."
 # --no-cpu-throttling: tailscaled must handle tailnet traffic even with no
 # HTTP request in flight; billed per warm instance, still scale-to-zero
+IAP_FLAG=""
+[ "$IAP" = "1" ] && IAP_FLAG="--iap"
 gcloud run deploy "$SERVICE" \
     --project "$PROJECT" \
     --region "$REGION" \
@@ -138,12 +152,40 @@ gcloud run deploy "$SERVICE" \
     --min-instances "$MIN_INSTANCES" --max-instances 1 \
     --session-affinity \
     --timeout 3600 \
-    --set-env-vars "SESSION_NAME=${SESSION_NAME}" \
+    --set-env-vars "SESSION_NAME=${SESSION_NAME},TTYD_FONT_SIZE=${FONT_SIZE}" \
     --set-secrets "$SECRET_REFS" \
     --add-volume "name=gemini,type=cloud-storage,bucket=${BUCKET}" \
     --add-volume-mount "volume=gemini,mount-path=/gcs-session" \
     --labels "agrun=session" \
+    $IAP_FLAG \
     --quiet
+
+if [ "$IAP" = "1" ]; then
+    # IAP's service agent must be able to invoke the service, and each allowed
+    # Google account needs the accessor role. The OAuth client itself is
+    # project-level IAP settings (one-time setup, see docs/phone-access.md);
+    # accounts also need to be consent-screen test users while it's in Testing.
+    echo "==> Granting IAP access..."
+    gcloud run services add-iam-policy-binding "$SERVICE" \
+        --project "$PROJECT" --region "$REGION" \
+        --member "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-iap.iam.gserviceaccount.com" \
+        --role roles/run.invoker --quiet >/dev/null
+    # Accessors: one email per line in ~/.config/agrun/iap-accessors, falling
+    # back to the active gcloud account
+    ACCESSORS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/agrun/iap-accessors"
+    if [ -f "$ACCESSORS_FILE" ]; then
+        ACCESSORS="$(grep -v '^\s*$\|^\s*#' "$ACCESSORS_FILE")"
+    else
+        ACCESSORS="$(gcloud config get-value account 2>/dev/null)"
+    fi
+    for EMAIL in $ACCESSORS; do
+        gcloud beta iap web add-iam-policy-binding \
+            --project "$PROJECT" --resource-type=cloud-run \
+            --service "$SERVICE" --region "$REGION" \
+            --member "user:${EMAIL}" --role roles/iap.httpsResourceAccessor >/dev/null
+        echo "    accessor: $EMAIL"
+    done
+fi
 
 # Record project/region for the dashboard's cloud section
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/agrun"
@@ -151,10 +193,22 @@ mkdir -p "$CONFIG_DIR"
 printf '{\n  "project": "%s",\n  "region": "%s"\n}\n' "$PROJECT" "$REGION" > "$CONFIG_DIR/cloud.json"
 
 echo ""
-echo "Deployed. Connect with:"
-echo ""
-echo "  gcloud run services proxy $SERVICE --project $PROJECT --region $REGION --port 7681"
-echo ""
-echo "then open http://localhost:7681"
+if [ "$IAP" = "1" ]; then
+    SERVICE_URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"
+    # Keep the "Deployed." prefix: the dashboard greps for it to tell a
+    # finished deploy from one that died mid-run
+    echo "Deployed. IAP is on - open from any browser (phone included):"
+    echo ""
+    echo "  ${SERVICE_URL}/"
+    echo ""
+    echo "Sign in with an allowlisted Google account. Note: the dashboard's"
+    echo "local proxy does not work for IAP sessions - use the URL above."
+else
+    echo "Deployed. Connect with:"
+    echo ""
+    echo "  gcloud run services proxy $SERVICE --project $PROJECT --region $REGION --port 7681"
+    echo ""
+    echo "then open http://localhost:7681"
+fi
 echo ""
 echo "Never use --allow-unauthenticated: the web terminal is a remote shell."

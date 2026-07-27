@@ -807,12 +807,17 @@
                         : (s.deploying ? (stepText.startsWith('deploying') ? `${stepText}...` : `deploying: ${stepText}`)
                         : (s.connected ? 'connected' : (s.ready ? 'ready' : 'not ready')));
                     const status = s.failed ? '<span class="deploy-failed">deploy failed</span>' : esc(statusText);
-                    const badge = s.failed ? '' : (s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>');
+                    let badge = s.failed ? '' : (s.alwaysOn ? '<span class="cloud-badge">always-on</span>' : '<span class="cloud-badge">scale-to-zero</span>');
+                    if (s.iap) badge += '<span class="cloud-badge" title="behind Identity-Aware Proxy: open the URL in any browser (phone included) and sign in; the local proxy/iframe does not work for IAP sessions">iap</span>';
                     let connect = '-';
                     if (s.ready && !s.deploying) {
-                        connect = s.connected
-                            ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
-                            : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`;
+                        // IAP sessions: no local proxy (IAP rejects its tokens),
+                        // so link straight to the run.app URL instead
+                        connect = s.iap
+                            ? (s.publicUrl ? `<a href="${s.publicUrl}/" target="_blank">open in browser</a>` : '-')
+                            : (s.connected
+                                ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
+                                : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`);
                     }
                     const del = s.failed ? `<button class="delete-btn" onclick="dismissCloudError('${s.name}')">dismiss</button>`
                         : (s.deploying ? '' : (s.connected
@@ -883,9 +888,10 @@
                     localEmpty.querySelectorAll('.help, .tip').forEach(el => { el.style.display = cloudActive ? 'none' : ''; });
                 }
                 // Deploys started from this page connect themselves when ready
+                // (IAP sessions can't be proxied - nothing to auto-connect)
                 data.sessions.forEach(s => {
                     if (!pendingAutoConnect.has(s.name)) return;
-                    if (s.failed) { pendingAutoConnect.delete(s.name); return; }
+                    if (s.failed || s.iap) { pendingAutoConnect.delete(s.name); return; }
                     if (s.ready && !s.deploying && !s.connected) {
                         pendingAutoConnect.delete(s.name);
                         connectCloudSession(s.name);
@@ -928,6 +934,7 @@
         async function submitNewCloudSession() {
             const name = document.getElementById('cloud-session-name').value.replace(/ /g, '-').toLowerCase().trim() || 'default';
             const zeroScale = document.getElementById('cloud-zero-scale').checked;
+            const iap = document.getElementById('cloud-iap').checked;
             if (cloudSessions === null) {
                 setCloudNameError('still loading cloud sessions - try again in a moment');
                 return;
@@ -941,7 +948,7 @@
             await fetch('/api/cloud-create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, zeroScale })
+                body: JSON.stringify({ name, zeroScale, iap })
             });
             loadCloudSessions();
         }
@@ -1009,7 +1016,11 @@
             </div>
             <div class="modal-field-checkbox">
                 <input type="checkbox" id="cloud-zero-scale" checked>
-                <label for="cloud-zero-scale">scale to zero when idle (cheaper; resume with agy -c)</label>
+                <label for="cloud-zero-scale">scale to zero when idle</label>
+            </div>
+            <div class="modal-field-checkbox">
+                <input type="checkbox" id="cloud-iap">
+                <label for="cloud-iap">phone access via IAP (open from any browser; no embedding in the dashboard) - needs <a href="https://github.com/ykdojo/antigravity-cloud-run/blob/main/posts/phone-access-iap.md" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">one-time IAP setup</a></label>
             </div>
             <div class="modal-actions">
                 <button class="modal-cancel" onclick="closeNewCloudModal()">cancel</button>
