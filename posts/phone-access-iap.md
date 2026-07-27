@@ -39,9 +39,8 @@ never scales down to zero.
   access it.
 - **ttyd** turns the browser into a terminal. The agent is a TUI and the
   browser speaks HTTP/WebSocket; ttyd bridges the two.
-- **tmux** keeps the session alive across drops. Phones drop connections
-  constantly (screen lock, app switch); with tmux you just reattach, and phone
-  and laptop can attach at the same time.
+- **tmux** keeps the session alive when the connection drops, and you can
+  attach to the same session from multiple devices.
 - **agy** does the work.
 
 ## Setting it up
