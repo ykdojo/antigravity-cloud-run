@@ -35,8 +35,8 @@ min-instances=1 and it never scales down to zero.
 
 ## The stack, layer by layer
 
-- **IAP** decides who gets in. Cloud Run terminates TLS, IAP fronts it with a
-  Google sign-in, and the container keeps speaking plain HTTP.
+- **IAP** decides who gets in. Only the Google accounts you allowlisted can
+  access it.
 - **ttyd** turns the browser into a terminal. The agent is a TUI and the
   browser speaks HTTP/WebSocket; ttyd is the ~2MB bridge. The alternatives are
   all worse: sshd needs a client app and keys, code-server is a full IDE for
