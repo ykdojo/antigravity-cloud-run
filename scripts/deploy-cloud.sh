@@ -195,7 +195,9 @@ printf '{\n  "project": "%s",\n  "region": "%s"\n}\n' "$PROJECT" "$REGION" > "$C
 echo ""
 if [ "$IAP" = "1" ]; then
     SERVICE_URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"
-    echo "Deployed with IAP. Open from any browser (phone included):"
+    # Keep the "Deployed." prefix: the dashboard greps for it to tell a
+    # finished deploy from one that died mid-run
+    echo "Deployed. IAP is on - open from any browser (phone included):"
     echo ""
     echo "  ${SERVICE_URL}/"
     echo ""
