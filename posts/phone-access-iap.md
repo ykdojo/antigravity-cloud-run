@@ -60,7 +60,8 @@ gcloud beta iap web add-iam-policy-binding --resource-type=cloud-run \
 ```
 
 If your project lives in a Google Cloud organization, you may be done. Mine
-doesn't, and that's where the detour starts.
+doesn't, so I needed to take a long detour. In case you need to go through the
+same thing, here is what I went through.
 
 ## The 502 detour: no organization, no automatic OAuth client
 
