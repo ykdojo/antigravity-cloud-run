@@ -30,8 +30,8 @@ WebSocket is a real ingress request, so opening the tab wakes the instance,
 keeps it alive while you're connected, and lets it scale back to zero when you
 close the tab.
 
-If you want the instance to never die, even with no tab open, deploy with
-min-instances=1 and it never scales down to zero.
+If you want the instance to never die, deploy with min-instances=1 and it
+never scales down to zero.
 
 ## The stack, layer by layer
 
