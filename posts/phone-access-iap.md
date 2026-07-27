@@ -35,8 +35,6 @@ min-instances=1 and it never scales down to zero.
 
 ## The stack, layer by layer
 
-Every layer earns its place:
-
 - **IAP** decides who gets in. Cloud Run terminates TLS, IAP fronts it with a
   Google sign-in, and the container keeps speaking plain HTTP.
 - **ttyd** turns the browser into a terminal. The agent is a TUI and the
