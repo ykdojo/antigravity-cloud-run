@@ -115,7 +115,7 @@ account, and the terminal loads.
 ## What IAP breaks
 
 One thing stops working: `gcloud run services proxy`, which is how my
-dashboard embeds cloud terminals locally. IAP rejects the proxy's tokens, and
+dashboard embeds cloud terminals locally on my laptop. IAP rejects the proxy's tokens, and
 on a no-organization project there's no clean way around it.
 
 So it's a per-session choice, and I made it a flag: my deploy script takes
