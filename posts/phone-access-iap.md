@@ -13,6 +13,9 @@ setup](ephemeral-dev-environments.md): the agent runs with
 `--dangerously-skip-permissions` inside a container on Cloud Run, reachable
 through a web terminal. The missing piece was using it away from my laptop.
 
+This particular setup was done for Antigravity CLI, but it should work for
+pretty much any other CLI coding agent.
+
 ## Two ways to reach a session from a phone, and why I picked IAP
 
 My sessions already join my Tailscale network, so the obvious route was the
