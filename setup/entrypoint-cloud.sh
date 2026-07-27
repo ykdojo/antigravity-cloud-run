@@ -48,11 +48,35 @@ SYNC_LOOP=$!
 /home/agrun/start-tailscale.sh "agrun-${SESSION_NAME:-cloud}"
 
 TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
+
+# ttyd's own index.html has no <meta name="viewport">, so mobile browsers lay
+# the page out at a desktop width and scale it down - the terminal ends up
+# unreadably small on a phone no matter what fontSize is set to. ttyd can
+# serve a custom index (-I), so grab its page once and inject the tag. Done at
+# runtime rather than build time so it always matches the installed ttyd.
+INDEX=/home/agrun/ttyd-index.html
+ttyd -W -p 7690 /bin/true >/dev/null 2>&1 &
+BOOTSTRAP=$!
+for _ in $(seq 1 20); do
+    curl -sf localhost:7690/ -o "$INDEX" && break
+    sleep 0.25
+done
+kill "$BOOTSTRAP" 2>/dev/null
+INDEX_ARG=""
+if [ -s "$INDEX" ] && grep -q '<meta charset' "$INDEX"; then
+    sed -i 's|<meta charset="UTF-8">|<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">|' "$INDEX"
+    # The viewport tag isn't enough on its own: a browser set to "request
+    # desktop site" ignores it, lays the page out at desktop width and scales
+    # the result down, which shrinks the terminal past readability. Detect that
+    # (layout wider than the physical screen) and scale fontSize by the same
+    # ratio, so the on-screen size is what was asked for either way.
+    sed -i 's@</body>@<script>(function(){var i=setInterval(function(){var T=window.term;if(!T)return;clearInterval(i);var sw=screen.width?screen.width:innerWidth;if(innerWidth>sw*1.2){var b=T.options.fontSize?T.options.fontSize:16;T.options.fontSize=Math.round(b*innerWidth/sw);if(T.fit)T.fit();}},100);setTimeout(function(){clearInterval(i)},15000);})();</script></body>@' "$INDEX"
+    grep -q 'name="viewport"' "$INDEX" && INDEX_ARG="-I $INDEX"
+fi
+
 # ttyd only takes xterm options server-side (-t); URL query args don't work,
-# so the size is baked in at deploy time. Phones want a SMALLER font, not a
-# bigger one: at 390px wide, 12 fits ~53 columns vs ~40 at 16, and agy's TUI
-# needs the width more than it needs large glyphs.
-ttyd -W -t titleFixed="$TITLE" -t fontSize="${TTYD_FONT_SIZE:-16}" -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
+# so the font size is baked in at deploy time (TTYD_FONT_SIZE / deploy -f).
+ttyd -W $INDEX_ARG -t titleFixed="$TITLE" -t fontSize="${TTYD_FONT_SIZE:-16}" -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!
 
 # Cloud Run's SIGTERM grace period is ~10s: log out first (fast, and an

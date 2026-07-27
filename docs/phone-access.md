@@ -110,6 +110,41 @@ Housekeeping note (superseded, see Remaining steps item 3): the first secret
 (`****Bcek`, unretrievable - the creation dialog was dismissed before capture); the
 live one is `****hvm-`. The old one can be disabled/deleted in the console.
 
+## Open: terminal font size on a real iPhone (parked 2026-07-26)
+
+Readability on the actual phone is still not fully solved. What is known:
+
+- `?fontSize=` in the URL does nothing. ttyd only takes xterm options
+  server-side (`-t`), so the size is fixed at deploy time: `TTYD_FONT_SIZE`
+  env var, or `deploy-cloud.sh -f`.
+- ttyd's own index.html has **no `<meta name="viewport">`**, so mobile
+  browsers lay the page out at a desktop width and scale it down - the
+  terminal ends up unreadable regardless of font size. `entrypoint-cloud.sh`
+  now captures ttyd's page at startup (throwaway ttyd on port 7690), injects
+  the tag, and serves it back with `ttyd -I`.
+- That alone wasn't enough on the test iPhone (Chrome, iOS): a browser in
+  desktop-page mode ignores the viewport tag entirely. Evidence: a session
+  reporting `fontSize: 40, cols: 24` in a desktop browser wrapped at ~47
+  columns on the phone, implying a ~1250px layout viewport. A brand-new
+  hostname behaved the same, so it isn't a per-site setting - most likely
+  Chrome iOS's global default page mode.
+- So the injected page also carries a small script: if `innerWidth >
+  screen.width * 1.2`, multiply `term.options.fontSize` by that ratio and
+  refit. With base 16 this produced the first genuinely readable phone
+  session (confirmed by screenshot, agy driven from the phone).
+- **Unresolved:** raising the base to 40 did *not* produce visibly larger
+  text on the phone, so something is still clamping or overriding the value -
+  possibly ttyd re-sending its preferences over the WebSocket after the
+  script runs, or an xterm-side cap. Base 16 looks right in practice, so this
+  was parked rather than chased further.
+
+Next session, to close it out: reproduce in a real iOS simulator (needs Xcode,
+not installed on the yk2 Mac) rather than by screenshot ping-pong. Playwright
+WebKit with the iPhone 13 preset does **not** reproduce it - it honours
+device-width and renders correctly, as does desktop Chrome. Instrument the
+page (log `innerWidth`, `screen.width`, `term.options.fontSize` before and
+after the script, plus any later preference messages) to find what resets it.
+
 ## Remaining steps
 
 1. Phone test: open `https://agrun-default-zozv65cteq-uc.a.run.app/?fontSize=16` in
