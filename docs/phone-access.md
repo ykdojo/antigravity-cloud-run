@@ -139,10 +139,17 @@ live one is `****hvm-`. The old one can be disabled/deleted in the console.
    proxies for the browser iframes (replaces `gcloud run services proxy`).
    Side effect of the attempt: secret `****Bcek` was deleted and a now-unused
    `****XCMB` secret exists next to the live `****hvm-` - safe to delete.
-4. Decide per-session defaults: given the above, `deploy-cloud.sh --iap` would mean
-   "browser/phone access, no dashboard proxy" for that session. (IAP + IAM invoker
-   + accessor grants per service; the OAuth client is already project-level so no
-   per-service OAuth work.)
+4. ~~Decide per-session defaults~~ **Done (same day):** `deploy-cloud.sh -i`
+   deploys a session with IAP + the IAM invoker grant + accessor grants
+   (emails from `~/.config/agrun/iap-accessors`, one per line, falling back to
+   the active gcloud account; the OAuth client is project-level so no
+   per-service OAuth work). Default stays no-IAP: the dashboard proxy/iframe
+   is the main experience. The dashboard detects IAP per service from the
+   `run.googleapis.com/iap-enabled` annotation and renders an "open in
+   browser" link + `iap` badge instead of the connect button/iframe; the new
+   cloud session modal has an opt-in "phone access via IAP" checkbox.
+   Remember: new accessor accounts must also be consent-screen test users
+   while publishing status is Testing.
 5. Blog post: the layered-stack explanation above + the Option A/B trade-off + the
    no-org OAuth detour is the outline. Angle: "wake your cloud coding agent by
    opening a browser tab; it costs nothing while you're not looking at it."

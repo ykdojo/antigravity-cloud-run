@@ -291,18 +291,24 @@ function getCloudSessions(callback) {
             const name = svc.metadata.name;
             const ready = (svc.status?.conditions || []).some(c => c.type === 'Ready' && c.status === 'True');
             const minInstances = svc.spec?.template?.metadata?.annotations?.['autoscaling.knative.dev/minScale'] || '0';
+            // IAP sessions can't be proxied locally (IAP rejects the proxy's
+            // tokens - see docs/phone-access.md); the dashboard links out to
+            // the run.app URL instead of embedding an iframe
+            const iap = svc.metadata?.annotations?.['run.googleapis.com/iap-enabled'] === 'true';
             const proxy = cloudProxies.get(name);
             return {
                 name,
                 displayName: name.replace('agrun-', ''),
                 ready,
                 alwaysOn: minInstances !== '0',
+                iap,
+                publicUrl: iap ? (svc.status?.url || null) : null,
                 deploying: running.has(name),
                 step: running.has(name) ? currentDeployStep(name) : null,
                 connected: !!proxy,
                 terminalReady: !!cloudReady.get(name),
                 url: proxy ? `http://localhost:${proxy.port}` : null,
-                proxyCmd: `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
+                proxyCmd: iap ? '' : `gcloud run services proxy ${name} --project ${config.project} --region ${config.region} --port 7681`
             };
         });
         // Include deploys in flight or failed that don't show up in the list yet
@@ -325,6 +331,7 @@ function createCloudSession(options, callback) {
     const scriptPath = path.join(__dirname, '..', 'scripts', 'deploy-cloud.sh');
     const args = ['-s', name];
     if (!options.zeroScale) args.push('-a'); // scale-to-zero is the script default
+    if (options.iap) args.push('-i'); // phone/browser access; no local proxy
     const config = getCloudConfig();
     if (config) args.push('-P', config.project, '-r', config.region);
     cloudDeployErrors.delete(serviceName);
