@@ -1,10 +1,10 @@
 # Phone access: drive agy from a phone browser via IAP
 
 Working notes from a design conversation on 2026-07-26 (Claude Code session
-`3984bd2c-4a84-4129-a9d6-b2d72b65a457` on the yk2 Mac). Status: IAP is enabled and
-partially configured; one console step remains. A future agent with fresh context
-should be able to pick this up from here. This is also source material for a blog
-post later.
+`3984bd2c-4a84-4129-a9d6-b2d72b65a457` on the yk2 Mac). Status: **working** - the
+`run.app` URL now 302s to Google sign-in (fixed later the same day, second session).
+Remaining: phone test + the follow-ups at the bottom. This is also source material
+for a blog post later.
 
 ## Goal
 
@@ -69,32 +69,65 @@ Done, live on the `agrun-default` service:
    --service=agrun-default --region=us-central1 --role=roles/iap.httpsResourceAccessor`
 4. `iap.googleapis.com` API enabled on the project.
 
-**Blocker (one console step, needs the project owner's Google login):** requests
-currently return `502` with body "Empty Google Account OAuth client ID(s)/secret(s)"
-(`x-goog-iap-generated-response: true`). The project has no OAuth consent config, and
-the old fix (`gcloud iap oauth-brands create`) is shut down as of March 2026 and
-required an org anyway. Fix: Google Auth Platform branding in the console -
-https://console.cloud.google.com/auth/overview?project=agrun-sessions-0709 -
-app name e.g. "agrun sessions", support email = the project owner account, audience
-External. (~2 minutes, then IAP's Google-managed OAuth client should activate.)
+**The 502 and its real fix (resolved 2026-07-26, second session):** requests
+returned `502` with body "Empty Google Account OAuth client ID(s)/secret(s)"
+(`x-goog-iap-generated-response: true`). The original theory - configure Auth
+Platform branding and IAP's Google-managed OAuth client activates - was **wrong**:
+branding alone didn't fix it, and neither did toggling IAP off/on. The actual
+constraint (per the Cloud Run IAP docs): **IAP's Google-managed OAuth client only
+authenticates users inside the project's organization.** This project is on a
+personal Gmail with no org, so external users (any Gmail) require a custom OAuth
+client handed to IAP. Full working recipe:
+
+1. Auth Platform branding (console, done via browser automation): app name
+   "agrun sessions", support email = owner account, audience External, agree to the
+   API user-data policy. Console: `/auth/overview` → Get started.
+2. Test users (console, `/auth/audience`): while publishing status is Testing, only
+   test users can sign in. Added both accessor accounts. (Testing mode also expires
+   sign-ins after ~7 days - re-sign-in weekly, accepted; "Publish app" would remove
+   that.)
+3. Custom OAuth client (console, `/auth/clients`): Web application, name
+   `agrun-iap`. Add authorized redirect URI
+   `https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID:handleRedirect`.
+   Note: secrets are shown only at creation (hash-only afterwards); the console
+   "copy" icon + `pbpaste` gets it into a file without displaying it.
+4. Hand the client to IAP (project-level, so every future IAP'd service inherits
+   it):
+   ```
+   # iap_settings.yaml
+   access_settings:
+     oauth_settings:
+       client_id: CLIENT_ID
+       client_secret: CLIENT_SECRET
+   gcloud iap settings set iap_settings.yaml --project=agrun-sessions-0709
+   ```
+   (Delete the yaml after; the secret lives on only as a sha256 in IAP settings.)
+5. Verified: `curl -sI https://agrun-default-zozv65cteq-uc.a.run.app/` → 302 to
+   accounts.google.com with `client_id=...agrun-iap...`. No IAP re-toggle needed -
+   the settings change took effect in seconds.
+
+Housekeeping note: the client `agrun-iap` has an orphaned first secret
+(`****Bcek`, unretrievable - the creation dialog was dismissed before capture); the
+live one is `****hvm-`. The old one can be disabled/deleted in the console.
 
 ## Remaining steps
 
-1. Configure Auth Platform branding (console step above).
-2. Verify: `curl -sI https://agrun-default-zozv65cteq-uc.a.run.app/` should turn from
-   502 into a 302 to accounts.google.com.
-3. Phone test: open `https://agrun-default-zozv65cteq-uc.a.run.app/?fontSize=16` in
-   the phone browser, sign in, drive agy. (ttyd accepts xterm client options as URL
-   query args - fontSize is the important one on mobile.)
-4. Likely follow-up: a small same-origin wrapper page with a key toolbar (Esc, Ctrl,
+1. Phone test: open `https://agrun-default-zozv65cteq-uc.a.run.app/?fontSize=16` in
+   the phone browser, sign in as a test-user account, drive agy. (ttyd accepts xterm
+   client options as URL query args - fontSize is the important one on mobile.)
+2. Likely follow-up: a small same-origin wrapper page with a key toolbar (Esc, Ctrl,
    Tab, arrows) - phone keyboards lack them and agy menus need arrows. Must be
    same-origin with ttyd to inject keys into the iframe, so serve wrapper + proxied
    ttyd from one port rather than two.
-5. Decide per-session defaults: should `deploy-cloud.sh` grow an `--iap` flag so new
-   sessions come up phone-ready? (IAP + IAM invoker + accessor grants per service.)
-6. Blog post: the layered-stack explanation above + the Option A/B trade-off is the
-   outline. Angle: "wake your cloud coding agent by opening a browser tab; it costs
-   nothing while you're not looking at it."
+3. Decide per-session defaults: should `deploy-cloud.sh` grow an `--iap` flag so new
+   sessions come up phone-ready? (IAP + IAM invoker + accessor grants per service;
+   the OAuth client is already project-level so no per-service OAuth work.)
+4. Blog post: the layered-stack explanation above + the Option A/B trade-off + the
+   no-org OAuth detour is the outline. Angle: "wake your cloud coding agent by
+   opening a browser tab; it costs nothing while you're not looking at it."
+   Console screenshots from the setup session are in
+   `~/agrun-phone-access-screenshots/` on the yk2 Mac (wizard steps, IAP panel,
+   client creation); redact project ID / emails / run.app URL before publishing.
 
 ## Cost notes
 
