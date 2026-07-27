@@ -1,4 +1,4 @@
-# Driving a cloud coding agent from your phone (no app installation necessary)
+# How I drive a cloud coding agent from my phone (no app installation necessary)
 
 **tl;dr:** I put Google's Identity-Aware Proxy in front of a Cloud Run service
 running a coding agent in a web terminal. Now I open a URL on my phone, sign in
@@ -38,14 +38,10 @@ min-instances=1 and it never scales down to zero.
 - **IAP** decides who gets in. Only the Google accounts you allowlisted can
   access it.
 - **ttyd** turns the browser into a terminal. The agent is a TUI and the
-  browser speaks HTTP/WebSocket; ttyd is the ~2MB bridge. The alternatives are
-  all worse: sshd needs a client app and keys, code-server is a full IDE for
-  the sake of its terminal panel, and a custom UI needs an agent API that
-  doesn't exist yet.
-- **tmux** makes the session immortal. Phones drop connections constantly
-  (screen lock, app switch). tmux decouples session lifetime from connection
-  lifetime, so you reattach after any drop, and phone and laptop can attach at
-  the same time.
+  browser speaks HTTP/WebSocket; ttyd bridges the two.
+- **tmux** keeps the session alive across drops. Phones drop connections
+  constantly (screen lock, app switch); with tmux you just reattach, and phone
+  and laptop can attach at the same time.
 - **agy** does the work.
 
 ## Setting it up
@@ -75,7 +71,7 @@ After enabling IAP, every request returned a 502 with this body:
 Empty Google Account OAuth client ID(s)/secret(s).
 ```
 
-The docs bury the reason: IAP's Google-managed OAuth client only authenticates
+The reason: IAP's Google-managed OAuth client only authenticates
 users **inside your organization**. A personal project has no organization, so
 there is no client at all, hence "empty". External users need a custom OAuth
 client handed to IAP. Four steps, mostly console clicks:
@@ -124,11 +120,10 @@ One thing stops working: `gcloud run services proxy`, which is how my
 dashboard embeds cloud terminals locally. The proxy isn't a tunnel. It
 forwards requests to the same public URL with an identity token attached, and
 IAP rejects that token: it was minted for the service URL as audience, and IAP
-wants its own OAuth client ID as the audience. Same front door, new bouncer,
-wrong ticket. User accounts can't mint the right ticket with plain gcloud, so
-there's no flag that fixes it.
+wants its own OAuth client ID as the audience. User accounts can't mint that
+kind of token with plain gcloud, so there's no flag that fixes it.
 
-IAP actually has a setting that looks purpose-built for this:
+IAP has a setting for exactly this:
 `programmatic_clients`, an allowlist of extra OAuth client IDs whose tokens
 IAP will accept. Allowlisting gcloud's own client ID would have made the proxy
 work unchanged. The API refused: the allowlisted client must be in the same
