@@ -106,7 +106,7 @@ client handed to IAP. Full working recipe:
    accounts.google.com with `client_id=...agrun-iap...`. No IAP re-toggle needed -
    the settings change took effect in seconds.
 
-Housekeeping note: the client `agrun-iap` has an orphaned first secret
+Housekeeping note (superseded, see Remaining steps item 3): the first secret
 (`****Bcek`, unretrievable - the creation dialog was dismissed before capture); the
 live one is `****hvm-`. The old one can be disabled/deleted in the console.
 
@@ -127,6 +127,18 @@ live one is `****hvm-`. The old one can be disabled/deleted in the console.
    vs proxy is per-service either/or right now. Laptop access to an IAP'd service
    still works fine through the browser (same run.app URL, sign in as a test-user
    account) - tmux allows phone + laptop attached simultaneously.
+   **Dead end, don't retry:** IAP has a `programmatic_clients` allowlist
+   (`access_settings.oauth_settings.programmatic_clients`) that accepts extra
+   token audiences - allowlisting gcloud's own client
+   (`32555940559.apps.googleusercontent.com`) would have made the proxy work
+   unchanged, but the API rejects it: the client must be in the same
+   *organization* as the resource, and this no-org project can't satisfy that.
+   The realistic coexistence path, if ever needed: the dashboard connects to the
+   run.app URL directly with an `Authorization: Bearer` ID token minted via
+   service-account impersonation with `--audiences=<agrun-iap client id>`, and
+   proxies for the browser iframes (replaces `gcloud run services proxy`).
+   Side effect of the attempt: secret `****Bcek` was deleted and a now-unused
+   `****XCMB` secret exists next to the live `****hvm-` - safe to delete.
 4. Decide per-session defaults: given the above, `deploy-cloud.sh --iap` would mean
    "browser/phone access, no dashboard proxy" for that session. (IAP + IAM invoker
    + accessor grants per service; the OAuth client is already project-level so no
