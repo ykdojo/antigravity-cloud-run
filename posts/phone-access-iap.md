@@ -28,8 +28,7 @@ get through. You open the service's regular `run.app` URL, sign in, and you're
 at the terminal. The terminal's
 WebSocket is a real ingress request, so opening the tab wakes the instance,
 keeps it alive while you're connected, and lets it scale back to zero when you
-close the tab. Pay only while you're looking at it. No app install either: any
-Google account you allowlist works, plain Gmail included.
+close the tab. Pay only while you're looking at it.
 
 The trade-off: a fire-and-forget task (kick it off, pocket the phone) dies
 about 15 minutes after you disconnect. For interactive use that's fine, and
