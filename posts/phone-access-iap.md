@@ -1,12 +1,10 @@
-# Driving a cloud coding agent from a phone browser
+# Driving a cloud coding agent from your phone (no app installation necessary)
 
 **tl;dr:** I put Google's Identity-Aware Proxy in front of a Cloud Run service
 running a coding agent in a web terminal. Now I open a URL on my phone, sign in
-with my Google account, and I'm talking to the agent. On a personal
-(no-organization) project this takes one extra step: IAP's automatic OAuth
-client doesn't apply there, so you wire up your own.
+with my Google account, and I'm talking to the agent.
 
-![The agy terminal, served from Cloud Run behind IAP](../assets/phone-access-terminal.jpg)
+![The agy terminal at phone size](../assets/phone-access-terminal-phone.png)
 
 **Source:** [github.com/ykdojo/antigravity-cloud-run](https://github.com/ykdojo/antigravity-cloud-run)
 
@@ -24,8 +22,10 @@ is idle and reclaims the instance after about 15 minutes, mid-use. The only fix
 is pinning the instance with min-instances=1, which costs money around the
 clock whether I'm using it or not.
 
-IAP flips that. You open the service's regular `run.app` URL, IAP shows a
-Google sign-in page, and then you're through to the terminal. The terminal's
+IAP flips that. Identity-Aware Proxy is Google Cloud's managed sign-in gate:
+you put it in front of a service, and only the Google accounts you allowlist
+get through. You open the service's regular `run.app` URL, sign in, and you're
+at the terminal. The terminal's
 WebSocket is a real ingress request, so opening the tab wakes the instance,
 keeps it alive while you're connected, and lets it scale back to zero when you
 close the tab. Pay only while you're looking at it. No app install either: any
