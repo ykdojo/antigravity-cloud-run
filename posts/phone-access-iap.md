@@ -30,10 +30,9 @@ WebSocket is a real ingress request, so opening the tab wakes the instance,
 keeps it alive while you're connected, and lets it scale back to zero when you
 close the tab. Pay only while you're looking at it.
 
-The trade-off: a fire-and-forget task (kick it off, pocket the phone) dies
-about 15 minutes after you disconnect. For interactive use that's fine, and
-tmux plus a GCS-synced session means a reclaimed instance picks up where it
-left off on the next visit.
+If you want the instance to never die, even with no tab open, deploy with
+min-instances=1 and it's never reclaimed. You're just billed around the clock
+for it.
 
 ## The stack, layer by layer
 
