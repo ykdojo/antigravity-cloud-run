@@ -2,13 +2,11 @@
 
 **tl;dr:** I put Google's Identity-Aware Proxy in front of a Cloud Run service
 running a coding agent in a web terminal. Now I open a URL on my phone, sign in
-with my Google account, and I'm talking to the agent. The instance wakes when I
-open the tab and scales back to zero when I close it, so it costs nothing while
-I'm not looking at it. Getting there involved one detour Google doesn't
-document well: on a personal (no-organization) project, IAP's automatic OAuth
-client doesn't work, and you have to wire up your own.
+with my Google account, and I'm talking to the agent. On a personal
+(no-organization) project this takes one extra step: IAP's automatic OAuth
+client doesn't apply there, so you wire up your own.
 
-<!-- screenshot: phone browser showing the agy terminal -->
+![The agy terminal, served from Cloud Run behind IAP](../assets/phone-access-terminal.jpg)
 
 **Source:** [github.com/ykdojo/antigravity-cloud-run](https://github.com/ykdojo/antigravity-cloud-run)
 
@@ -89,6 +87,8 @@ client handed to IAP. Four steps, mostly console clicks:
 
 1. **Branding** (console, Google Auth Platform → Overview → Get started): app
    name, support email, audience External, agree to the API user-data policy.
+
+   ![The Auth Platform branding wizard](../assets/phone-access-branding-step1.jpg)
 2. **Test users** (Audience page): while the consent screen is in Testing,
    only listed test users can sign in. Add every account you granted the
    accessor role to. Testing mode also expires sign-ins after about 7 days;
@@ -121,8 +121,7 @@ returns a 302 to accounts.google.com. On the phone: open
 parameters, and fontSize is the one that matters on mobile), pick your Google
 account, and the terminal loads.
 
-<!-- screenshot: consent screen "Sign in to agrun sessions" -->
-<!-- screenshot: terminal after sign-in -->
+![The Google sign-in IAP puts in front of the terminal](../assets/phone-access-consent.jpg)
 
 ## What IAP breaks, and the dead end I hit trying to fix it
 
@@ -148,7 +147,7 @@ service and renders accordingly: normal sessions get the embedded terminal
 via the local proxy, IAP sessions get an "open in browser" link. Default is
 no IAP, because the embedded local experience is still the main one.
 
-<!-- screenshot: dashboard with an iap-badged session and "open in browser" -->
+![The dashboard: an IAP session gets a badge and an "open in browser" link instead of an embedded terminal](../assets/phone-access-dashboard-iap.jpg)
 
 ## Cost
 
