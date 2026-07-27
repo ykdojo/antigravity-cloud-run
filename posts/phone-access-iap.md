@@ -4,7 +4,7 @@
 running a coding agent in a web terminal. Now I open a URL on my phone, sign in
 with my Google account, and I'm talking to the agent.
 
-![The agy terminal at phone size](../assets/phone-access-terminal-phone.png)
+![Driving an agy session from my phone: asking it to summarize the latest three episodes of a podcast, and watching it search](../assets/phone-access-terminal-phone.png)
 
 **Source:** [github.com/ykdojo/antigravity-cloud-run](https://github.com/ykdojo/antigravity-cloud-run)
 
@@ -133,3 +133,22 @@ proxy and gets embedded in the dashboard:
 It's a checkbox when creating a session too, off by default:
 
 ![The new cloud session dialog with a phone access via IAP checkbox](../assets/phone-access-new-session-modal.jpg)
+
+## Limitations
+
+The basic functionality works: I can open a session from my phone, type a
+task, and watch it run. A couple of rough edges I'm hoping to address later.
+
+Scrolling isn't great. It's a terminal in a browser tab, so scrolling back
+through output on a touchscreen is fiddlier than it should be.
+
+Font size is the other one. ttyd only accepts the terminal's font size
+server-side, and its page ships without a `<meta name="viewport">` tag, so
+mobile browsers lay it out at a desktop width and scale the whole thing down.
+Injecting the tag fixed it in every browser I tested except the one that
+matters most, Chrome on my iPhone, where it still comes out smaller than I
+set it. Every other browser respects the setting, so I'm not sure what's
+different there yet.
+
+Phone keyboards are also missing Esc, Ctrl, Tab and arrow keys, which the
+agent's menus want. A small key toolbar above the terminal would solve that.
