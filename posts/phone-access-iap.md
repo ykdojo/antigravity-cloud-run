@@ -111,8 +111,6 @@ returns a 302 to accounts.google.com. On the phone: open
 parameters, and fontSize is the one that matters on mobile), pick your Google
 account, and the terminal loads.
 
-![The Google sign-in IAP puts in front of the terminal](../assets/phone-access-consent.jpg)
-
 ## What IAP breaks, and the dead end I hit trying to fix it
 
 One thing stops working: `gcloud run services proxy`, which is how my
