@@ -73,7 +73,7 @@ Empty Google Account OAuth client ID(s)/secret(s).
 
 The reason: IAP's Google-managed OAuth client only authenticates
 users **inside your organization**. A personal project has no organization, so
-there is no client at all, hence "empty". External users need a custom OAuth
+there is no client at all, which is why it says "empty". External users need a custom OAuth
 client handed to IAP. Four steps, mostly console clicks:
 
 1. **Branding** (console, Google Auth Platform → Overview → Get started): app
