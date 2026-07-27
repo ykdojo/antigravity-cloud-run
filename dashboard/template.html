@@ -814,7 +814,7 @@
                         // IAP sessions: no local proxy (IAP rejects its tokens),
                         // so link straight to the run.app URL instead
                         connect = s.iap
-                            ? (s.publicUrl ? `<a href="${s.publicUrl}/?fontSize=16" target="_blank">open in browser</a>` : '-')
+                            ? (s.publicUrl ? `<a href="${s.publicUrl}/" target="_blank">open in browser</a>` : '-')
                             : (s.connected
                                 ? `<a href="${s.url}" target="_blank">${s.url.replace('http://', '')}</a>`
                                 : `<button class="start-btn" onclick="connectCloudSession('${s.name}', this)">connect</button>`);

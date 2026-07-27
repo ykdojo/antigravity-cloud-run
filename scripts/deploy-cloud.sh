@@ -6,6 +6,8 @@
 #       proxy does NOT work for IAP sessions - see docs/phone-access.md).
 #       Requires the project's one-time IAP OAuth setup (branding, custom
 #       client in IAP settings, test users). Default: no IAP, local proxy.
+#   -f  terminal font size (ttyd -t fontSize), default 16. On a 390px-wide
+#       phone that's ~40 columns; drop to 12 for ~53 if you want more width.
 set -euo pipefail
 
 SESSION_NAME="default"
@@ -13,17 +15,21 @@ REGION="us-central1"
 PROJECT="$(gcloud config get-value project 2>/dev/null)"
 MIN_INSTANCES=0
 IAP=0
+FONT_SIZE=""
 
-while getopts "s:r:P:ai" opt; do
+while getopts "s:r:P:aif:" opt; do
     case $opt in
         s) SESSION_NAME="$OPTARG" ;;
         r) REGION="$OPTARG" ;;
         P) PROJECT="$OPTARG" ;;
         a) MIN_INSTANCES=1 ;;
         i) IAP=1 ;;
-        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-a] [-i]"; exit 1 ;;
+        f) FONT_SIZE="$OPTARG" ;;
+        *) echo "Usage: $0 [-s session] [-r region] [-P project] [-a] [-i] [-f fontsize]"; exit 1 ;;
     esac
 done
+
+[ -z "$FONT_SIZE" ] && FONT_SIZE=16
 
 if [ -z "$PROJECT" ]; then
     echo "Error: no GCP project. Set one with 'gcloud config set project ...' or pass -P." >&2
@@ -146,7 +152,7 @@ gcloud run deploy "$SERVICE" \
     --min-instances "$MIN_INSTANCES" --max-instances 1 \
     --session-affinity \
     --timeout 3600 \
-    --set-env-vars "SESSION_NAME=${SESSION_NAME}" \
+    --set-env-vars "SESSION_NAME=${SESSION_NAME},TTYD_FONT_SIZE=${FONT_SIZE}" \
     --set-secrets "$SECRET_REFS" \
     --add-volume "name=gemini,type=cloud-storage,bucket=${BUCKET}" \
     --add-volume-mount "volume=gemini,mount-path=/gcs-session" \
@@ -191,7 +197,7 @@ if [ "$IAP" = "1" ]; then
     SERVICE_URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"
     echo "Deployed with IAP. Open from any browser (phone included):"
     echo ""
-    echo "  ${SERVICE_URL}/?fontSize=16"
+    echo "  ${SERVICE_URL}/"
     echo ""
     echo "Sign in with an allowlisted Google account. Note: the dashboard's"
     echo "local proxy does not work for IAP sessions - use the URL above."

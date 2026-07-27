@@ -108,9 +108,7 @@ client handed to IAP. Four steps, mostly console clicks:
 
 The change takes effect in seconds: the 502 is gone, and the service URL
 redirects to a Google sign-in instead. On the phone: open
-`https://SERVICE-URL/?fontSize=16` (ttyd accepts xterm options as query
-parameters, and fontSize is the one that matters on mobile), pick your Google
-account, and the terminal loads.
+the service URL, pick your Google account, and the terminal loads.
 
 ## What IAP breaks
 
@@ -123,4 +121,12 @@ So it's a per-session choice, and I made it a flag: my deploy script takes
 as an "open in browser" link instead of an embedded terminal. Default is no
 IAP.
 
-![The dashboard: an IAP session gets a badge and an "open in browser" link instead of an embedded terminal](../assets/phone-access-dashboard-iap.jpg)
+Here's a `phone` session with IAP next to a `laptop` session without it. The
+IAP one opens in a browser tab; the other one connects through the local
+proxy and gets embedded in the dashboard:
+
+![The dashboard listing a laptop session with a connect button and a phone session with an iap badge and an open-in-browser link](../assets/phone-access-dashboard-iap.jpg)
+
+It's a checkbox when creating a session too, off by default:
+
+![The new cloud session dialog with a phone access via IAP checkbox](../assets/phone-access-new-session-modal.jpg)

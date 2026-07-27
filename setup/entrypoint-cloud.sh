@@ -48,7 +48,11 @@ SYNC_LOOP=$!
 /home/agrun/start-tailscale.sh "agrun-${SESSION_NAME:-cloud}"
 
 TITLE="Antigravity on Cloud Run - ${SESSION_NAME:-cloud}"
-ttyd -W -t titleFixed="$TITLE" -t fontSize=16 -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
+# ttyd only takes xterm options server-side (-t); URL query args don't work,
+# so the size is baked in at deploy time. Phones want a SMALLER font, not a
+# bigger one: at 390px wide, 12 fits ~53 columns vs ~40 at 16, and agy's TUI
+# needs the width more than it needs large glyphs.
+ttyd -W -t titleFixed="$TITLE" -t fontSize="${TTYD_FONT_SIZE:-16}" -t disableLeaveAlert=true -p "${PORT:-7681}" /home/agrun/ttyd-wrapper.sh &
 TTYD=$!
 
 # Cloud Run's SIGTERM grace period is ~10s: log out first (fast, and an
