@@ -119,10 +119,19 @@ live one is `****hvm-`. The old one can be disabled/deleted in the console.
    Tab, arrows) - phone keyboards lack them and agy menus need arrows. Must be
    same-origin with ttyd to inject keys into the iframe, so serve wrapper + proxied
    ttyd from one port rather than two.
-3. Decide per-session defaults: should `deploy-cloud.sh` grow an `--iap` flag so new
-   sessions come up phone-ready? (IAP + IAM invoker + accessor grants per service;
-   the OAuth client is already project-level so no per-service OAuth work.)
-4. Blog post: the layered-stack explanation above + the Option A/B trade-off + the
+3. **IAP breaks the dashboard's local proxy for that service** (found 2026-07-26):
+   `gcloud run services proxy` (dashboard/server.js) gets 401 on IAP-enabled
+   services - it mints ID tokens with audience = service URL, but IAP requires
+   audience = the IAP OAuth client ID, and user accounts can't mint those with
+   plain gcloud. Not fixable by granting accessor to the gcloud account. So IAP
+   vs proxy is per-service either/or right now. Laptop access to an IAP'd service
+   still works fine through the browser (same run.app URL, sign in as a test-user
+   account) - tmux allows phone + laptop attached simultaneously.
+4. Decide per-session defaults: given the above, `deploy-cloud.sh --iap` would mean
+   "browser/phone access, no dashboard proxy" for that session. (IAP + IAM invoker
+   + accessor grants per service; the OAuth client is already project-level so no
+   per-service OAuth work.)
+5. Blog post: the layered-stack explanation above + the Option A/B trade-off + the
    no-org OAuth detour is the outline. Angle: "wake your cloud coding agent by
    opening a browser tab; it costs nothing while you're not looking at it."
    Console screenshots from the setup session are in
